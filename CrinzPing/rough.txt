@@ -1,0 +1,1 @@
+getting userdetails may be not working because i set only get to the apigateway wiith that point of api..

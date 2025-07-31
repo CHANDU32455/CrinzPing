@@ -1,0 +1,149 @@
+/* === Base styles === */
+body {
+  margin: 0;
+  background-color: #0d0d0d;
+  font-family: 'Fira Code', monospace;
+  color: #e0e0e0;
+}
+
+/* === Layout utilities === */
+.app-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 2rem;
+}
+
+
+/* Crinz Submit */
+.crinz-submit {
+  background: #111;
+  border: 1px solid #00ff00;
+  border-radius: 8px;
+  padding: 1.5rem;
+  max-width: 500px;
+  margin: 2rem auto;
+}
+
+.crinz-submit h2 {
+  text-align: center;
+  margin-bottom: 1.25rem;
+  font-size: 1.5rem;
+  color: #00ff00;
+}
+
+/* Form */
+.crinz-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.crinz-field {
+  background: #000;
+  color: #2dac2d;
+  border: 1px solid #00ff00;
+  padding: 0.6rem;
+  border-radius: 4px;
+  font-size: 1rem;
+  outline: none;
+}
+
+.crinz-field:focus {
+  border-color: #00ffff;
+}
+
+.crinz-textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.crinz-button {
+  background: #186818;
+  color: #000;
+  font-weight: bold;
+  border: none;
+  padding: 0.7rem;
+  border-radius: 4px;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.crinz-button:hover {
+  background: #35a135;
+}
+
+.crinz-response {
+  margin-top: 0.8rem;
+  text-align: center;
+  font-size: 0.9rem;
+  color: #00ffff;
+}
+
+/* === Responsive tweaks === */
+@media screen and (max-width: 600px) {
+  .crinz-submit {
+    padding: 1rem;
+    margin: 1rem;
+    max-width: 100%;
+    border-radius: 0;
+  }
+
+  .crinz-submit h2 {
+    font-size: 1.25rem;
+  }
+
+  .crinz-field {
+    font-size: 0.95rem;
+    padding: 0.5rem;
+  }
+
+  .crinz-button {
+    font-size: 0.95rem;
+    padding: 0.6rem;
+  }
+
+  .crinz-response {
+    font-size: 0.85rem;
+    padding: 0.5rem;
+  }
+}
+
+/* === Home Page === */
+.home-container {
+  text-align: center;
+}
+
+/*=== user info status ===*/
+.user-info-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.user-icon {
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #00ff00;
+  transition: transform 0.2s ease;
+}
+
+.user-icon:hover {
+  transform: scale(1.1);
+}
+
+.user-popup {
+  position: absolute;
+  top: 2rem;
+  right: 0;
+  background: #111;
+  border: 1px solid #00ff00;
+  padding: 1rem;
+  border-radius: 6px;
+  min-width: 200px;
+  box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+  color: #e0e0e0;
+  z-index: 100;
+}
