@@ -21,20 +21,8 @@ function LoggedInView({
 }) {
   return (
     <>
-      <div style={{
-        position: "absolute",
-        top: "20px",
-        left: "20px",
-        fontFamily: "'Fira Code', monospace",
-        fontSize: "1.2rem",
-        fontWeight: "bold",
-        color: "#00ffcc",
-        userSelect: "none"
-      }}>CrinzPing 🔥</div>
-
       {showTile && (
         <div style={{
-          marginTop: "4rem",
           padding: "2rem",
           maxWidth: "700px",
           background: "rgba(40, 40, 40, 0.6)",

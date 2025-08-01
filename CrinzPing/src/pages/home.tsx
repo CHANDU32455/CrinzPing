@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { useCrinzLogic } from "../hooks/useCrinzLogic";
 import LoggedInView from "../components/LoggedInView";
 import LoggedOutView from "../components/LoggedOutView";
-import AuthButton from "../components/AuthButton";
 
 function Home() {
   const {
@@ -22,14 +21,15 @@ function Home() {
     "Crinz spits brutal dev roasts at 6AM, 12PM, 6PM. Crafted with love, optimized for shame. Get in, get burned, get better.";
 
   useEffect(() => {
-    if (auth.isAuthenticated && auth.user?.id_token) {
+    if (auth.isAuthenticated && auth.user?.id_token && auth.user?.access_token && auth.user.profile.email) {
       localStorage.setItem("id_token", auth.user.id_token);
+      localStorage.setItem("access_token", auth.user.access_token);
+      localStorage.setItem("email", auth.user.profile.email);
     }
   }, [auth.isAuthenticated, auth.user]);
 
   return (
     <div className="app-container home-container">
-      <AuthButton />
 
       {auth.isLoading ? (
         <div>Loading...</div>
