@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useAuth } from "react-oidc-context";
 
 export function useCrinzLogic() {
@@ -11,18 +11,29 @@ export function useCrinzLogic() {
   const [showToast, setShowToast] = useState(false);
   const [fetchCount, setFetchCount] = useState(0);
 
+  const lastHourRef = useRef<number | null>(null);
+
   const getCrinzMessage = async (toast = false) => {
     try {
       setIsFetching(true);
+
       const token = auth.user?.access_token;
+      const userDetails = JSON.parse(localStorage.getItem("user_details") || "{}");
+      const categories = userDetails?.categories || [];
+
       const res = await fetch(import.meta.env.VITE_CRINZ_API_URL, {
-        method: "GET",
-        headers: { Authorization: `Bearer ${token}` },
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ categories }),
       });
+
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
       const { message } = await res.json();
 
-      const now = new Date().toLocaleTimeString();
+      const now = new Date().toLocaleString();
       setCrinzMessage(message);
       setLastRoastTime(now);
       setShowTile(true);
@@ -30,6 +41,7 @@ export function useCrinzLogic() {
 
       localStorage.setItem("crinz_cache", message);
       localStorage.setItem("crinz_last_time", now);
+
       if (toast) {
         setShowToast(true);
         setTimeout(() => setShowToast(false), 3000);
@@ -49,32 +61,42 @@ export function useCrinzLogic() {
     localStorage.setItem("crinz_auto_enabled", String(updated));
   };
 
+  // Load cached roast when user logs in
   useEffect(() => {
-    const cached = localStorage.getItem("crinz_cache");
-    const time = localStorage.getItem("crinz_last_time");
-    const auto = localStorage.getItem("crinz_auto_enabled");
-    if (cached) {
-      setCrinzMessage(cached);
-      setShowTile(true);
-    }
-    if (time) setLastRoastTime(time);
-    if (auto === "false") setAutoMode(false);
-  }, []);
+    if (auth.isAuthenticated) {
+      const cached = localStorage.getItem("crinz_cache");
+      const time = localStorage.getItem("crinz_last_time");
+      const auto = localStorage.getItem("crinz_auto_enabled");
 
+      if (cached && time) {
+        setCrinzMessage(cached);
+        setLastRoastTime(time);
+        setShowTile(true);
+      } else {
+        getCrinzMessage(false);
+      }
+
+      if (auto === "false") setAutoMode(false);
+    }
+  }, [auth.isAuthenticated]);
+
+  // Auto fetch at 6/12/18 hrs
   useEffect(() => {
-    let lastHour: number | null = null;
     const check = () => {
-      if (!autoMode) return;
+      if (!autoMode || !auth.isAuthenticated) return;
+
       const hour = new Date().getHours();
       const targets = [6, 12, 18];
-      if (targets.includes(hour) && lastHour !== hour) {
+
+      if (targets.includes(hour) && lastHourRef.current !== hour) {
         getCrinzMessage(true);
-        lastHour = hour;
+        lastHourRef.current = hour;
       }
     };
+
     const interval = setInterval(check, 60000);
     return () => clearInterval(interval);
-  }, [autoMode, auth.user?.access_token]);
+  }, [autoMode, auth.isAuthenticated, auth.user?.access_token]);
 
   return {
     auth,

@@ -1,3 +1,5 @@
+create an api to send crinzes in bulk,..  for admin access only...
+
 import json
 import random
 

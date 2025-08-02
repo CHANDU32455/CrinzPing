@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useUserDetails } from "../hooks/UserInfo";
 import { useAuth } from "react-oidc-context";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 const UserDetailsViewer: React.FC = () => {
   const auth = useAuth();
-  const { userDetails, error } = useUserDetails();
+  const { userDetails, error, refreshUserDetails } = useUserDetails();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [hovered, setHovered] = useState(false);
@@ -13,6 +13,15 @@ const UserDetailsViewer: React.FC = () => {
   const [aboutHovered, setAboutHovered] = useState(false);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [signOutHovered, setSignOutHovered] = useState(false);
+
+  const location = useLocation();
+
+  // ✅ Refresh if redirected from profile update
+  useEffect(() => {
+    if (location.state?.refreshUser) {
+      refreshUserDetails();
+    }
+  }, [location.state]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -69,9 +78,7 @@ const UserDetailsViewer: React.FC = () => {
       minWidth: "250px",
       fontSize: "0.95rem",
     },
-    stat: {
-      marginBottom: "0.5rem",
-    },
+    stat: { marginBottom: "0.5rem" },
     button: {
       fontFamily: "'Fira Code', monospace",
       padding: "8px 16px",
@@ -84,10 +91,7 @@ const UserDetailsViewer: React.FC = () => {
       width: "100%",
       marginTop: "0.5rem",
     },
-    error: {
-      color: "red",
-      fontSize: "0.85rem",
-    },
+    error: { color: "red", fontSize: "0.85rem" },
   };
 
   const linkStyles = {
@@ -115,7 +119,7 @@ const UserDetailsViewer: React.FC = () => {
 
   const aboutLinkStyles = {
     ...linkStyles,
-    color: "#888", // different subtle color for About
+    color: "#888",
     fontStyle: "italic",
   };
 
@@ -154,7 +158,7 @@ const UserDetailsViewer: React.FC = () => {
                   <Link
                     to="/postUserDetails"
                     style={linkStyles}
-                    state={{ userDetails }}
+                    state={{ userDetails, refreshUser: true }}
                     onMouseEnter={() => setHovered(true)}
                     onMouseLeave={() => setHovered(false)}
                   >
@@ -190,7 +194,11 @@ const UserDetailsViewer: React.FC = () => {
                     <button
                       onMouseEnter={() => setSignOutHovered(true)}
                       onMouseLeave={() => setSignOutHovered(false)}
-                      onClick={() => auth.removeUser()}
+                      onClick={() => {
+                        auth.removeUser();
+                        sessionStorage.removeItem("user_details");
+                        sessionStorage.removeItem("user_details_token");
+                      }}
                       style={styles.button}
                     >
                       Sign out

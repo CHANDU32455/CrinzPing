@@ -5,6 +5,7 @@ import CrinzExplorer from "./components/CrinzSubmit";
 import UserDetailsForm from "./components/UserDetailsForm";
 import Layout from "./hooks/Layout";
 import AboutApp from "./pages/about";
+import ProtectedRoute from "./components/ProtectedRoute";
 import './App.css';
 
 const App = () => {
@@ -14,8 +15,25 @@ const App = () => {
         {/* All pages with navbar */}
         <Route element={<Layout />}>
           <Route path="/" element={<Home />} />
-          <Route path="/contributeCrinz" element={<CrinzExplorer />} />
-          <Route path="/postUserDetails" element={<UserDetailsForm />} />
+
+          <Route
+            path="/contributeCrinz"
+            element={
+              <ProtectedRoute>
+                <CrinzExplorer />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/postUserDetails"
+            element={
+              <ProtectedRoute>
+                <UserDetailsForm />
+              </ProtectedRoute>
+            }
+          />
+
           <Route path="/about" element={<AboutApp />} />
         </Route>
 

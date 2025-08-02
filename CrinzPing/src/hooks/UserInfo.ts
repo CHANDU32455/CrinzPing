@@ -14,6 +14,16 @@ export const useUserDetails = () => {
       return;
     }
 
+    const cached = sessionStorage.getItem("user_details");
+    const cachedToken = sessionStorage.getItem("user_details_token");
+
+    // ✅ If cached and token matches, use it
+    if (cached && cachedToken === token) {
+      setUserDetails(JSON.parse(cached));
+      return;
+    }
+
+    // Otherwise fetch from API
     const fetchDetails = async () => {
       try {
         const response = await axios.get(API_URL, {
@@ -22,6 +32,10 @@ export const useUserDetails = () => {
           },
         });
         setUserDetails(response.data);
+
+        // Cache user details for the session
+        sessionStorage.setItem("user_details", JSON.stringify(response.data));
+        sessionStorage.setItem("user_details_token", token);
       } catch (err: any) {
         setError(err.response?.data?.error || err.message || "Failed to fetch user details");
       }
@@ -30,5 +44,20 @@ export const useUserDetails = () => {
     fetchDetails();
   }, []);
 
-  return { userDetails, error };
+  return { userDetails, error, refreshUserDetails: async () => {
+    // force refresh from API (e.g. after editing profile)
+    const token = localStorage.getItem("access_token");
+    if (!token) return;
+
+    try {
+      const response = await axios.get(API_URL, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setUserDetails(response.data);
+      sessionStorage.setItem("user_details", JSON.stringify(response.data));
+      sessionStorage.setItem("user_details_token", token);
+    } catch (err: any) {
+      setError(err.response?.data?.error || err.message || "Failed to refresh user details");
+    }
+  }};
 };
