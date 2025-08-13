@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useCrinzLogic } from "../hooks/useCrinzLogic";
 import LoggedInView from "../components/LoggedInView";
 import LoggedOutView from "../components/LoggedOutView";
+import { setAuthData, clearAuthData } from "../utils/useAuthStore";
 
 function Home() {
   const {
@@ -17,20 +18,16 @@ function Home() {
     getCrinzMessage
   } = useCrinzLogic();
 
-  const appDescription =
-    "Crinz spits brutal dev roasts at 6AM, 12PM, 6PM. Crafted with love, optimized for shame. Get in, get burned, get better.";
-
   useEffect(() => {
-    if (auth.isAuthenticated && auth.user?.id_token && auth.user?.access_token && auth.user.profile.email) {
-      localStorage.setItem("id_token", auth.user.id_token);
-      localStorage.setItem("access_token", auth.user.access_token);
-      localStorage.setItem("email", auth.user.profile.email);
+    if (auth.isAuthenticated && auth.user?.id_token && auth.user?.access_token) {
+      setAuthData(auth.user as any); // store everything including cognito:username
+    } else if (!auth.isAuthenticated) {
+      clearAuthData(); // cleanup on logout
     }
   }, [auth.isAuthenticated, auth.user]);
 
   return (
     <div className="app-container home-container">
-
       {auth.isLoading ? (
         <div>Loading...</div>
       ) : auth.error ? (
@@ -48,10 +45,9 @@ function Home() {
             toggleAutoMode={toggleAutoMode}
             getCrinzMessage={getCrinzMessage}
           />
-          {console.log(auth.user)}
         </>
       ) : (
-        <LoggedOutView appDescription={appDescription} />
+        <LoggedOutView />
       )}
     </div>
   );

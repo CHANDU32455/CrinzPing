@@ -1,67 +1,110 @@
-function LoggedOutView({ appDescription }: { appDescription: string }) {
+import SignInButton from "./SignInButton";
+
+function LoggedOutView() {
   return (
     <div style={styles.wrapper}>
-      <h1 style={styles.heading}>Welcome to CrinzPing 🔥</h1>
-      <p style={styles.desc}>
-        {appDescription}
-      </p>
+      {/* Left Section */}
+      <div style={styles.leftSection}>
+        <h1 style={styles.heading}>Welcome to CrinzPing 🔥</h1>
+        <p style={styles.desc}>
+          Wanna roast your friends with savage crinz messages? <br />
+          Or maybe drop wild pickup lines to your loved ones? <br />
+          Need something crazy to sound effortlessly cool? <br />
+          You're at the right place — sign up, roast others, get roasted,  
+          and join the madness. Let's gooooo 🚀
+        </p>
 
-      <h2 style={styles.subHeading}>Why you'll love CrinzPing</h2>
-      <ul style={styles.list}>
-        <li>⚡ Brutal roasts delivered 3 times daily</li>
-        <li>🎯 Tailored to developers, crafted with dark humor</li>
-        <li>🤝 Community-driven roast contributions</li>
-        <li>🌐 Fully serverless on AWS — blazing fast</li>
-      </ul>
+        <div style={styles.highlights}>
+          <p>🎯 Dark humor for developers & meme lovers</p>
+          <p>🤝 Roast battles powered by the community</p>
+          <p>💡 Share, laugh, and get roasted daily</p>
+        </div>
+      </div>
 
-      <p style={styles.footer}>
-        Sign in to start your daily dose of savage humor.  
-        CrinzPing is not for the faint-hearted — but it will make you laugh.
-      </p>
+      {/* Right Section */}
+      <div style={styles.rightSection}>
+        <div style={styles.card}>
+          <h2 style={styles.subHeading}>Join the Roast Arena</h2>
+          <p style={styles.footerText}>Sign in to start roasting (or be roasted)</p>
+          <SignInButton />
+          <p style={styles.note}>⚠️ Warning: You may laugh till you cry.</p>
+        </div>
+      </div>
     </div>
   );
 }
 
-const styles = {
+const styles: { [key: string]: React.CSSProperties } = {
   wrapper: {
     fontFamily: "'Fira Code', monospace",
     backgroundColor: "#000",
     color: "limegreen",
     minHeight: "100vh",
-    padding: "2rem 1rem",
-    maxWidth: "800px",
-    margin: "0 auto",
-    lineHeight: 1.6,
-    textAlign: "center" as const
+    display: "flex",
+    flexDirection: "row",
+    flexWrap: "wrap", // allows stacking on mobile
+  },
+  leftSection: {
+    flex: 1,
+    minWidth: "300px",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    padding: "3rem",
+    color: "#00ffcc",
+    textAlign: "left",
+  },
+  rightSection: {
+    flex: 1,
+    minWidth: "300px",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#111",
+    borderLeft: "1px solid rgba(0,255,204,0.2)",
+    padding: "2rem",
+  },
+  card: {
+    backgroundColor: "#111",
+    borderRadius: "16px",
+    padding: "2.5rem",
+    width: "100%",
+    maxWidth: "400px",
+    textAlign: "center",
+    boxShadow: "0 0 20px rgba(0, 255, 0, 0.4)",
+    border: "1px solid #00ffcc",
   },
   heading: {
-    fontSize: "2rem",
-    marginBottom: "1rem",
-    textShadow: "0 0 8px limegreen",
-  },
-  subHeading: {
-    fontSize: "1.4rem",
-    marginTop: "2rem",
-    marginBottom: "0.8rem",
-    color: "#00ffcc",
+    fontSize: "2.5rem",
+    marginBottom: "1.5rem",
+    textShadow: "0 0 12px limegreen",
   },
   desc: {
+    fontSize: "1.1rem",
+    marginBottom: "2rem",
+    lineHeight: 1.7,
+  },
+  highlights: {
     fontSize: "1rem",
+    lineHeight: 1.8,
+  },
+  subHeading: {
+    fontSize: "1.6rem",
     marginBottom: "1rem",
     color: "#00ffcc",
   },
-  list: {
-    listStyle: "none",
-    paddingLeft: 0,
-    marginBottom: "1rem",
+  footerText: {
     fontSize: "1rem",
-  },
-  footer: {
-    marginTop: "2rem",
-    fontSize: "0.95rem",
+    marginBottom: "1rem",
     color: "#aaa",
     fontStyle: "italic",
-  }
+  },
+  note: {
+    marginTop: "1rem",
+    fontSize: "0.9rem",
+    color: "#888",
+    fontStyle: "italic",
+  },
 };
 
 export default LoggedOutView;

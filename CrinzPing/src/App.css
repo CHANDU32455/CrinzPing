@@ -1,58 +1,135 @@
+/* === Root variables for easy theming === */
+:root {
+  --color-bg: #000;
+  --color-text: limegreen;
+  --color-accent: #00ffcc;
+  --color-muted: #aaa;
+  --font-main: "Fira Code", monospace;
+  --max-width: 1200px;
+
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 2rem;
+  --space-xl: 3rem;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-round: 50%;
+
+  --shadow-glow: 0 0 10px limegreen, 0 0 20px var(--color-accent);
+  --shadow-soft: 0 2px 10px rgba(0, 255, 100, 0.1);
+}
+
 /* === Base styles === */
-body {
+* {
   margin: 0;
-  background-color: #0d0d0d;
-  font-family: 'Fira Code', monospace;
-  color: #e0e0e0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-/* === Layout utilities === */
-.app-container {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-main);
+  line-height: 1.6;
   min-height: 100vh;
-  padding: 2rem;
+  overflow-x: hidden;
 }
 
-/* === Home Page === */
-.home-container {
+/* Container utility */
+.container {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 var(--space-md);
+}
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  margin-bottom: var(--space-sm);
+}
+
+h1 {
+  font-size: clamp(2rem, 4vw, 3rem);
+  text-shadow: var(--shadow-glow);
+}
+
+h2 {
+  font-size: clamp(1.4rem, 2.5vw, 2rem);
+  color: var(--color-accent);
+}
+
+/* Paragraphs */
+p {
+  font-size: 1rem;
+  color: var(--color-accent);
+  margin-bottom: var(--space-md);
+}
+
+/* Lists */
+ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+li {
+  margin-bottom: var(--space-xs);
+  font-size: 1rem;
+  color: var(--color-text);
+}
+
+/* Buttons */
+button,
+.btn {
+  display: inline-block;
+  background: var(--color-accent);
+  color: var(--color-bg);
+  border: none;
+  padding: 0.7rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background 0.3s ease, transform 0.2s ease;
+}
+
+button:hover,
+.btn:hover {
+  background: var(--color-text);
+  transform: scale(1.03);
+}
+
+
+/* Inputs & checkboxes */
+input,
+textarea {
+  background: #111;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  padding: 0.5rem;
+  font-family: var(--font-main);
+}
+
+/* Toast (global utility) */
+.toast {
+  position: fixed;
+  bottom: var(--space-md);
+  right: var(--space-md);
+  background: #121212;
+  color: var(--color-accent);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  border-left: 4px solid var(--color-accent);
+  box-shadow: var(--shadow-soft);
+  font-weight: bold;
+  max-width: 280px;
   text-align: center;
 }
 
-/*=== user info status ===*/
-.user-info-wrapper {
-  position: relative;
-  display: inline-block;
-}
-
-.user-icon {
-  font-size: 1.5rem;
-  cursor: pointer;
-  color: #00ff00;
-  transition: transform 0.2s ease;
-}
-
-.user-icon:hover {
-  transform: scale(1.1);
-}
-
-.user-popup {
-  position: absolute;
-  top: 2rem;
-  right: 0;
-  background: #111;
-  border: 1px solid #00ff00;
-  padding: 1rem;
-  border-radius: 6px;
-  min-width: 200px;
-  box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
-  color: #e0e0e0;
-  z-index: 100;
-}
-
+/* Animations */
 @keyframes borderSlide {
   0% { background-position: 0% 50%; }
   100% { background-position: 100% 50%; }
@@ -63,7 +140,7 @@ body {
     box-shadow: 0 0 10px limegreen;
   }
   50% {
-    box-shadow: 0 0 20px #00ffcc, 0 0 30px limegreen;
+    box-shadow: 0 0 20px var(--color-accent), 0 0 30px limegreen;
   }
   100% {
     box-shadow: 0 0 10px limegreen;

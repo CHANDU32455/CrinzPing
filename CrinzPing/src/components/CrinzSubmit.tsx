@@ -19,9 +19,23 @@ const CrinzSubmit: React.FC = () => {
     const [response, setResponse] = useState('');
 
     const defaultCategories = [
-        "General", "Frontend", "Backend", "Infra", "DevOps",
-        "QA", "Data", "Security", "Product", "Design"
+        "General",
+        "LoveFails",
+        "FirstDateDisasters",
+        "OfficeGossip",
+        "CollegeDrama",
+        "FamilyPressure",
+        "SocialMediaGoneWrong",
+        "TravelMishaps",
+        "EmbarrassingMoments",
+        "FriendshipFails",
+        "FestivalFiascos",
+        "MarriageMadness",
+        "NeighbourhoodStories",
+        "SchoolCringe",
+        "AwkwardEncounters"
     ];
+
     const categoryOptions = defaultCategories.map(cat => ({
         label: cat,
         value: cat

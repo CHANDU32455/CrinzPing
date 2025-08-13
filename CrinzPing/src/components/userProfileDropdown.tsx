@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useUserDetails } from "../hooks/UserInfo";
 import { useAuth } from "react-oidc-context";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 const UserDetailsViewer: React.FC = () => {
   const auth = useAuth();
@@ -13,10 +13,9 @@ const UserDetailsViewer: React.FC = () => {
   const [aboutHovered, setAboutHovered] = useState(false);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [signOutHovered, setSignOutHovered] = useState(false);
-
   const location = useLocation();
+  const navigate = useNavigate();
 
-  // ✅ Refresh if redirected from profile update
   useEffect(() => {
     if (location.state?.refreshUser) {
       refreshUserDetails();
@@ -198,6 +197,7 @@ const UserDetailsViewer: React.FC = () => {
                         auth.removeUser();
                         sessionStorage.removeItem("user_details");
                         sessionStorage.removeItem("user_details_token");
+                        navigate("/");
                       }}
                       style={styles.button}
                     >

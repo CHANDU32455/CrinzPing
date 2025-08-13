@@ -1,0 +1,214 @@
+.crinz-feed-container {
+  max-width: 600px;
+  margin: 1rem auto;
+  font-family: "Fira Code", monospace;
+  color: limegreen;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 0 1rem;
+}
+
+/* Post Tile */
+.crinz-post {
+  background: rgba(20, 20, 20, 0.95);
+  border: 1px solid rgba(0, 255, 204, 0.2);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 0 10px rgba(0, 255, 100, 0.15);
+  min-height: 75vh;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.crinz-post:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 0 20px rgba(0, 255, 100, 0.3);
+}
+
+/* Header */
+.post-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.user-name {
+  font-weight: bold;
+  font-size: 1rem;
+  color: #00ffcc;
+}
+
+.post-category {
+  font-style: italic;
+  font-size: 0.85rem;
+  color: #999;
+}
+
+/* Centered Message Container */
+.post-message {
+  flex-grow: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  margin: 1rem 0;
+  font-size: 1.1rem;
+  line-height: 1.7;
+  color: limegreen;
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 0 0.5rem;
+}
+
+/* Timestamp */
+.post-meta {
+  font-size: 0.75rem;
+  color: #777;
+  text-align: center;
+  margin-top: 0.5rem;
+}
+
+/* Actions Row */
+.post-actions {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1rem;
+  border-top: 1px solid rgba(0, 255, 204, 0.15);
+  padding-top: 0.8rem;
+  flex-wrap: wrap;
+}
+
+/* Scoped buttons for actions */
+.post-actions button {
+  all: unset; /* Reset global button styles */
+  display: inline-block;
+  text-align: center;
+  background: rgba(0, 255, 204, 0.08);
+  color: #aaa;
+  font-size: 0.95rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease, transform 0.15s ease;
+  min-width: 70px;
+  text-align: center;
+}
+
+.post-actions button:hover {
+  color: #00ffcc;
+  background: rgba(0, 255, 204, 0.15);
+  transform: translateY(-1px);
+}
+
+.post-actions button.liked {
+  color: red;
+  background: rgba(255, 0, 0, 0.15);
+  font-weight: bold;
+}
+
+/* Load More Crinz as centered clickable text */
+.load-more-text {
+  display: block;
+  margin: 1.5rem auto;
+  font-weight: bold;
+  font-size: 1.15rem;
+  color: limegreen;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.2s ease;
+  text-align: center;
+}
+
+.load-more-text:hover {
+  color: #00ffcc;
+  text-decoration: underline;
+}
+
+/* Container for all three buttons side-by-side */
+.crinz-buttons-container {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin: 0.5rem auto 1.5rem auto;
+  flex-wrap: wrap;
+  max-width: 600px;
+}
+
+/* Style for all buttons inside container */
+.crinz-buttons-container button {
+  all: unset;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1rem;
+  padding: 0.55rem 1.2rem;
+  border-radius: 8px;
+  background: #00cc66;
+  color: #0a0a0a;
+  box-shadow: 0 3px 6px rgba(0, 204, 102, 0.4);
+  text-align: center;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  user-select: none;
+  min-width: 140px;
+  text-align: center;
+}
+
+.crinz-buttons-container button:hover {
+  background: #00e676;
+  box-shadow: 0 5px 12px rgba(0, 230, 118, 0.6);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .crinz-post {
+    min-height: 65vh;
+    padding: 1rem;
+  }
+
+  .post-message {
+    font-size: 1rem;
+    line-height: 1.5;
+    padding: 0 0.3rem;
+  }
+
+  .post-actions {
+    gap: 0.6rem;
+  }
+
+  .post-actions button {
+    font-size: 0.9rem;
+    min-width: 65px;
+    padding: 0.35rem 0.7rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .crinz-feed-container {
+    padding: 0 0.5rem;
+  }
+
+  .crinz-post {
+    min-height: 60vh;
+  }
+
+  .post-message {
+    font-size: 0.95rem;
+  }
+
+  .post-actions {
+    gap: 0.5rem;
+  }
+
+  .post-actions button {
+    font-size: 0.85rem;
+    padding: 0.3rem 0.6rem;
+    min-width: 60px;
+  }
+}
+
+
