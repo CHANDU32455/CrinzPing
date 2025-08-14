@@ -1,3 +1,6 @@
+import { useEffect, useState } from "react";
+import { useBrowserNotification } from "../hooks/useBrowserNotification";
+
 function LoggedInView({
   crinzMessage,
   showTile,
@@ -17,47 +20,77 @@ function LoggedInView({
   showToast: boolean;
   fetchCount: number;
   toggleAutoMode: () => void;
-  getCrinzMessage: (showToastMode: boolean) => void;
+  getCrinzMessage: () => Promise<string>;
 }) {
+  const [toastVisible, setToastVisible] = useState(false);
+  const { showNotification } = useBrowserNotification();
+
+  // Show toast + browser notification when needed
+  useEffect(() => {
+    if (showToast) {
+      setToastVisible(true);
+      showNotification("🎯 New Crinz Pulled", crinzMessage);
+      const t = setTimeout(() => setToastVisible(false), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [showToast, crinzMessage, fetchCount, showNotification]);
+
   return (
-    // Main container to hold all content and center it vertically and horizontally
-    <div style={{
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center", // Center horizontally
-      justifyContent: "center", // Center vertically
-      minHeight: "100vh", // Take up the full viewport height
-      width: "100%", // Take up the full width
-      padding: "1rem",
-      boxSizing: "border-box"
-    }}>
-      <div style={{
+    <div
+      style={{
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        gap: "1.5rem", // Space between the tile and the checkbox
-        width: "100%"
-      }}>
+        justifyContent: "center",
+        minHeight: "100vh",
+        width: "100%",
+        padding: "1rem",
+        boxSizing: "border-box",
+        position: "relative"
+      }}
+    >
+      {/* Toast Notification */}
+      {toastVisible && (
+        <div
+          style={{
+            position: "absolute",
+            top: "20px",
+            background: "rgba(0, 0, 0, 0.85)",
+            color: "#00ffcc",
+            padding: "0.75rem 1.5rem",
+            borderRadius: "8px",
+            boxShadow: "0 0 10px rgba(0,255,100,0.3)",
+            fontSize: "0.95rem",
+            animation: "fadeInOut 3s ease"
+          }}
+        >
+          🎯 New Crinz Pulled — Total: {fetchCount}
+        </div>
+      )}
+
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1.5rem", width: "100%" }}>
         {showTile && (
-          <div style={{
-            width: "100%",
-            maxWidth: "700px",
-            background: "rgba(40, 40, 40, 0.6)",
-            backdropFilter: "blur(4px)",
-            borderRadius: "12px",
-            border: "1px solid #333",
-            boxShadow: "0 0 20px rgba(0,255,100,0.08)",
-            textAlign: "center",
-            fontSize: "clamp(1rem, 2.5vw, 1.1rem)",
-            position: "relative",
-            padding: "2rem 1.5rem"
-          }}>
+          <div
+            style={{
+              width: "100%",
+              maxWidth: "700px",
+              background: "rgba(40, 40, 40, 0.6)",
+              backdropFilter: "blur(4px)",
+              borderRadius: "12px",
+              border: "1px solid #333",
+              boxShadow: "0 0 20px rgba(0,255,100,0.08)",
+              textAlign: "center",
+              fontSize: "clamp(1rem, 2.5vw, 1.1rem)",
+              position: "relative",
+              padding: "2rem 1.5rem"
+            }}
+          >
             <div style={{ marginBottom: "1rem", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
               {crinzMessage}
             </div>
 
             <button
-              onClick={() => getCrinzMessage(false)}
+              onClick={() => getCrinzMessage()}
               disabled={isFetching}
               style={{
                 position: "absolute",
@@ -101,38 +134,19 @@ function LoggedInView({
           </div>
         )}
 
-        <label style={{
-          fontSize: "clamp(0.9rem, 2vw, 1rem)",
-          color: "#00ffcc",
-          display: "flex",
-          alignItems: "center",
-          gap: "0.5rem"
-        }}>
+        <label
+          style={{
+            fontSize: "clamp(0.9rem, 2vw, 1rem)",
+            color: "#00ffcc",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem"
+          }}
+        >
           <input type="checkbox" checked={autoMode} onChange={toggleAutoMode} />
           Auto Mode (6 / 12 / 18 hrs)
         </label>
       </div>
-
-      {showToast && (
-        <div style={{
-          position: "fixed",
-          bottom: "10px",
-          right: "10px",
-          left: "10px",
-          maxWidth: "280px",
-          margin: "0 auto",
-          backgroundColor: "#121212",
-          color: "#00ffcc",
-          padding: "12px 18px",
-          borderRadius: "8px",
-          boxShadow: "0 4px 10px rgba(0,255,100,0.2)",
-          fontWeight: "bold",
-          borderLeft: "4px solid #00ffcc",
-          textAlign: "center"
-        }}>
-          Crinz dropped automatically 💣
-        </div>
-      )}
     </div>
   );
 }

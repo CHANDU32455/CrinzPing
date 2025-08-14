@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { useUserDetails } from "../hooks/UserInfo";
 import { useAuth } from "react-oidc-context";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { clearAuthData } from "../utils/useAuthStore";
 
 const UserDetailsViewer: React.FC = () => {
   const auth = useAuth();
@@ -137,7 +138,13 @@ const UserDetailsViewer: React.FC = () => {
   return (
     <div ref={containerRef} style={styles.container}>
       {!auth.isAuthenticated ? (
-        <button onClick={() => auth.signinRedirect()} style={styles.toggle}>
+        <button
+          onClick={() => {
+            localStorage.removeItem("manual_logout"); // allow silent login later
+            auth.signinRedirect(); // Cognito login
+          }}
+          style={styles.toggle}
+        >
           Sign In
         </button>
       ) : (
@@ -194,10 +201,10 @@ const UserDetailsViewer: React.FC = () => {
                       onMouseEnter={() => setSignOutHovered(true)}
                       onMouseLeave={() => setSignOutHovered(false)}
                       onClick={() => {
-                        auth.removeUser();
-                        sessionStorage.removeItem("user_details");
-                        sessionStorage.removeItem("user_details_token");
-                        navigate("/");
+                        localStorage.setItem("manual_logout", "true"); // prevent silent login
+                        clearAuthData(); // clear local auth store
+                        auth.removeUser(); // remove Cognito session
+                        navigate("/"); // redirect home
                       }}
                       style={styles.button}
                     >

@@ -1,14 +1,13 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect } from "react";
 import { useAuth } from "react-oidc-context";
 import { setAuthData, clearAuthData } from "../utils/useAuthStore";
 
-const MAX_INACTIVITY_DAYS = 7;
+const MAX_INACTIVITY_DAYS = 5;
 
 const AuthManager: React.FC = () => {
   const auth = useAuth();
-  const refreshTimeout = useRef<number | null>(null);
 
-  // 1️⃣ Silent login if returning user (not manual logout)
+  // 1️⃣ Silent login for returning user if allowed
   useEffect(() => {
     if (auth.isAuthenticated) return;
 
@@ -18,78 +17,56 @@ const AuthManager: React.FC = () => {
     const lastLogin = localStorage.getItem("last_login");
     if (!lastLogin) return;
 
-    const trySilentLogin = async () => {
+    // Check if stored ID token is still valid
+    const idToken = localStorage.getItem("id_token");
+    const tokenExpired = () => {
+      if (!idToken) return true;
       try {
-        const silentUser = await auth.signinSilent();
-        if (silentUser?.id_token && silentUser?.access_token) {
-          setAuthData(silentUser as any);
-          console.log("Silent login successful");
-        }
+        const payload = JSON.parse(atob(idToken.split(".")[1]));
+        return Date.now() / 1000 > payload.exp;
       } catch {
-        console.log("Silent login failed, user needs manual sign-in");
+        return true;
       }
     };
 
-    trySilentLogin();
+    if (tokenExpired()) return; // skip silent login if token expired
+
+    auth.signinSilent()
+      .then((user) => {
+        if (user?.id_token && user?.access_token) {
+          setAuthData(user as any);
+          console.log("Silent login successful");
+        }
+      })
+      .catch(() => {
+        console.log("Silent login failed, manual login required");
+      });
   }, [auth.isAuthenticated]);
 
-  // 2️⃣ Token refresh + inactivity check
+  // 2️⃣ Inactivity logout + token storage
   useEffect(() => {
     if (!auth.isAuthenticated) return;
 
-    // Check inactivity
     const lastLogin = localStorage.getItem("last_login");
     if (lastLogin) {
-      const daysInactive =
-        (Date.now() - parseInt(lastLogin)) / (1000 * 60 * 60 * 24);
+      const daysInactive = (Date.now() - parseInt(lastLogin, 10)) / (1000 * 60 * 60 * 24);
       if (daysInactive > MAX_INACTIVITY_DAYS) {
-        auth.removeUser();
         clearAuthData();
+        auth.removeUser();
         localStorage.removeItem("last_login");
         localStorage.setItem("manual_logout", "true");
-        auth.signinRedirect();
+        auth.signinRedirect(); // redirect to login after inactivity
         return;
       }
     }
 
-    // Clear previous timeout
-    if (refreshTimeout.current) clearTimeout(refreshTimeout.current);
-
-    // Schedule silent refresh 1 min before token expiry
-    const expiresAt = auth.user?.expires_at;
-    if (expiresAt) {
-      const now = Math.floor(Date.now() / 1000);
-      const refreshInMs = (expiresAt - now - 60) * 1000;
-
-      if (refreshInMs > 0) {
-        refreshTimeout.current = window.setTimeout(async () => {
-          try {
-            const refreshed = await auth.signinSilent();
-            if (refreshed?.id_token && refreshed?.access_token) {
-              setAuthData(refreshed as any);
-              console.log("Token refreshed successfully");
-            }
-          } catch (err) {
-            console.error("Silent refresh failed", err);
-          }
-        }, refreshInMs);
-      }
+    // Update last_login & store latest auth tokens
+    localStorage.setItem("last_login", Date.now().toString());
+    if (auth.user?.id_token && auth.user?.access_token) {
+      setAuthData(auth.user as any);
+      localStorage.setItem("id_token", auth.user.id_token); // store for silent login check
     }
-
-    return () => {
-      if (refreshTimeout.current) clearTimeout(refreshTimeout.current);
-    };
-  }, [auth.isAuthenticated, auth.user?.expires_at]);
-
-  // 3️⃣ Update last_login & auth store whenever authenticated
-  useEffect(() => {
-    if (auth.isAuthenticated) {
-      localStorage.setItem("last_login", Date.now().toString());
-      if (auth.user?.id_token && auth.user?.access_token) {
-        setAuthData(auth.user as any);
-      }
-    }
-  }, [auth.isAuthenticated]);
+  }, [auth.isAuthenticated, auth.user]);
 
   return null;
 };

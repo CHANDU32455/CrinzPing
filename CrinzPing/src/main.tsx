@@ -10,7 +10,6 @@ const cognitoAuthConfig = {
   response_type: "code",
   scope: "openid email phone",
   automaticSilentRenew: true,
-  // You may also need silent_redirect_uri below
   silent_redirect_uri: import.meta.env.VITE_COGNITO_SILENT_REDIRECT_URI,
 };
 
