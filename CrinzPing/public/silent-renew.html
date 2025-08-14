@@ -5,8 +5,11 @@
 </head>
 <body>
   <script>
-    // This page is just a target for silent renew redirect.
-    // No additional JS needed because react-oidc-context handles everything.
+    window.addEventListener('load', () => {
+      if (window.parent) {
+        window.parent.postMessage('silent-renew-complete', '*');
+      }
+    });
   </script>
 </body>
 </html>

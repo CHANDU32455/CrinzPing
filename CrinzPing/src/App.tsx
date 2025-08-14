@@ -8,12 +8,12 @@ import AboutApp from "./pages/about";
 import ProtectedRoute from "./components/ProtectedRoute";
 import CrinzFeed from "./components/CrinzFeed";
 import Extras from "./components/Extras";
-import RefreshGen from "./utils/refreshGen";
+import AuthManager from "./utils/refreshGen";
 import './App.css';
 const App = () => {
   return (
     <BrowserRouter>
-      <RefreshGen />
+      <AuthManager />
       <Routes>
         {/* All pages with navbar */}
         <Route element={<Layout />}>

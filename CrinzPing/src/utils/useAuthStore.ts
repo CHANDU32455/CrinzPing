@@ -39,7 +39,7 @@ export const setAuthData = (auth: AuthData) => {
     localStorage.setItem("sub", auth.profile.sub);
     localStorage.setItem("cognito_username", cognitoUsername);
 
-    console.log("Auth data set:", authObject.profile);
+    //console.log("Auth data set:", authObject.profile);
     //console.log("access tkn: ", auth.access_token)
   } catch (e) {
     console.error("Error decoding token", e);
