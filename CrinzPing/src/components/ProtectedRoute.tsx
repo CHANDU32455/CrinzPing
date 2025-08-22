@@ -13,9 +13,10 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     return <div style={{ color: "#00ffcc", textAlign: "center", marginTop: "2rem" }}>Loading...</div>;
   }
 
-  if (!auth.isAuthenticated) {
-    return <Navigate to="/" state={{ message: "You must sign in first" }} replace />;
-  }
+if (!auth.isAuthenticated) {
+  sessionStorage.setItem("returnTo", window.location.pathname + window.location.search);
+  return <Navigate to="/" state={{ message: "You must sign in first" }} replace />;
+}
 
   return <>{children}</>;
 };

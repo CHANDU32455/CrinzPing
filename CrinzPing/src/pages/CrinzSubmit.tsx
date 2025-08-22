@@ -1,4 +1,5 @@
 import React, { useState, type FormEvent } from 'react';
+import { ContributeSeo } from '../components/Seo';
 import Select from "react-select";
 import { useCrinzLogic } from "../hooks/useCrinzLogic";
 import { jwtDecode } from 'jwt-decode';
@@ -11,12 +12,36 @@ interface CognitoIdTokenPayload {
 }
 
 const CrinzSubmit: React.FC = () => {
+    const { auth } = useCrinzLogic();
     const [userName, setUserName] = useState('');
     const [message, setMessage] = useState('');
     const [category, setCategory] = useState('General');
     const [customCategory, setCustomCategory] = useState('');
     const [useCustom, setUseCustom] = useState(false);
     const [response, setResponse] = useState('');
+
+    if (!auth.isAuthenticated) {
+        return (
+            <div style={{ maxWidth: '470px', margin: '7rem auto', textAlign: 'center' }}>
+                <ContributeSeo />
+                <h2>Please sign in to submit your roast 🔒</h2>
+                <button
+                    onClick={() => auth.signinRedirect()}
+                    style={{
+                        marginTop: '20px',
+                        padding: '12px 24px',
+                        background: '#3a86ff',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer'
+                    }}
+                >
+                    Sign In
+                </button>
+            </div>
+        );
+    }
 
     const defaultCategories = [
         "General",
@@ -41,7 +66,6 @@ const CrinzSubmit: React.FC = () => {
         value: cat
     }));
 
-    const { auth } = useCrinzLogic();
 
     const validateFields = () => {
         if (!userName.trim()) {
@@ -181,6 +205,7 @@ const CrinzSubmit: React.FC = () => {
 
     return (
         <div style={containerStyle}>
+            <ContributeSeo />
             <h2 style={titleStyle}>🔥 Submit Your Roast</h2>
             <form onSubmit={handleSubmit}>
                 <input

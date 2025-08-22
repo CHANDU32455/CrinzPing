@@ -8,7 +8,9 @@ const RegisterCallback = () => {
 
   useEffect(() => {
     if (auth.isAuthenticated) {
-      navigate("/");
+      const returnTo = sessionStorage.getItem("returnTo") || "/";
+      sessionStorage.removeItem("returnTo"); // clean up
+      navigate(returnTo, { replace: true });
     }
   }, [auth.isAuthenticated, navigate]);
 

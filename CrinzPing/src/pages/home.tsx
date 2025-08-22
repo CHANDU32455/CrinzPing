@@ -1,99 +1,72 @@
 import { useEffect, useState, useRef } from "react";
-import { useCrinzLogic } from "../hooks/useCrinzLogic";
+import { useCrinzLogic, type CrinzResponse } from "../hooks/useCrinzLogic";
 import LoggedInView from "../components/LoggedInView";
 import LoggedOutView from "../components/LoggedOutView";
-import { setAuthData, clearAuthData } from "../utils/useAuthStore";
+import { HomeSeo } from "../components/Seo";
 
 function Home() {
   const {
     auth,
-    crinzMessage,
+    crinzData,
     showTile,
     isFetching,
     autoMode,
-    lastRoastTime,
-    showToast,
     toggleAutoMode,
-    getCrinzMessage
+    getCrinzMessage,
   } = useCrinzLogic();
 
-  const [localCrinz, setLocalCrinz] = useState<string>("");
-  const [crinzPulls, setCrinzPulls] = useState<number>(() => {
-    const saved = localStorage.getItem("crinzPulls");
-    return saved ? parseInt(saved) : 0;
-  });
-
+  const [localCrinz, setLocalCrinz] = useState<CrinzResponse | null>(null);
   const fetchedOnce = useRef(false);
 
-  /** Save tokens locally when authenticated */
-  useEffect(() => {
-    if (auth.isAuthenticated && auth.user?.id_token && auth.user?.access_token) {
-      setAuthData(auth.user as any);
-    } else {
-      clearAuthData();
-    }
-  }, [auth.isAuthenticated, auth.user]);
-
-  /** Increment pull count & store */
-  const incrementPulls = () => {
-    setCrinzPulls(prev => {
-      const updated = prev + 1;
-      localStorage.setItem("crinzPulls", updated.toString());
-      return updated;
-    });
-  };
-
-  /** Centralized fetch logic */
-  const fetchCrinzIfNeeded = async (reason: "empty" | "manual" | "time" | "auto") => {
+  const fetchCrinzIfNeeded = async (
+    reason: "empty" | "manual" | "time" | "auto"
+  ): Promise<CrinzResponse | null> => {
     const cached = localStorage.getItem("crinz_cache");
-    const cachedTime = localStorage.getItem("crinz_last_time");
 
     const shouldFetch =
-      reason === "manual" || reason === "time" || !cached || !cachedTime;
+      reason === "manual" || reason === "time" || !cached;
 
     if (shouldFetch) {
-      await getCrinzMessage(reason !== "auto"); // toast for manual/time, silent for auto
-      incrementPulls();
+      const data = await getCrinzMessage();
+      if (data) setLocalCrinz(data);
+      return data || null;
     } else {
-      setLocalCrinz(cached || "");
+      const cachedObj = cached ? JSON.parse(cached) : null;
+      setLocalCrinz(cachedObj);
+      return cachedObj;
     }
   };
 
-  /** On mount: try cache first */
   useEffect(() => {
     if (!auth.isAuthenticated || fetchedOnce.current) return;
     fetchedOnce.current = true;
     fetchCrinzIfNeeded("empty");
   }, [auth.isAuthenticated]);
 
-  /** Sync with crinzMessage from hook */
   useEffect(() => {
-    if (crinzMessage) {
-      setLocalCrinz(crinzMessage);
+    if (crinzData) {
+      setLocalCrinz(crinzData);
     }
-  }, [crinzMessage]);
+  }, [crinzData]);
 
-  /** Manual refresh for button */
   const manualRefreshCrinz = async () => {
-    await fetchCrinzIfNeeded("manual");
-    return localStorage.getItem("crinz_cache") || "";
+    const data = await fetchCrinzIfNeeded("manual");
+    return data ? data : null;
   };
 
   return (
     <div className="app-container home-container">
+      <HomeSeo />
       {auth.isLoading ? (
         <div>Loading...</div>
       ) : auth.error ? (
         <div>Error: {auth.error.message}</div>
       ) : auth.isAuthenticated ? (
         <LoggedInView
-          crinzMessage={localCrinz}
+          crinzData={localCrinz}
           showTile={showTile}
           isFetching={isFetching}
           autoMode={autoMode}
-          lastRoastTime={lastRoastTime}
-          showToast={showToast}
-          fetchCount={crinzPulls}
           toggleAutoMode={toggleAutoMode}
           getCrinzMessage={manualRefreshCrinz}
         />

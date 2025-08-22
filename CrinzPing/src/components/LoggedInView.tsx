@@ -1,152 +1,122 @@
-import { useEffect, useState } from "react";
-import { useBrowserNotification } from "../hooks/useBrowserNotification";
+import type { CrinzResponse } from "../hooks/useCrinzLogic";
 
-function LoggedInView({
-  crinzMessage,
-  showTile,
-  isFetching,
-  autoMode,
-  lastRoastTime,
-  showToast,
-  fetchCount,
-  toggleAutoMode,
-  getCrinzMessage
-}: {
-  crinzMessage: string;
+interface Props {
+  crinzData: CrinzResponse | null;
   showTile: boolean;
   isFetching: boolean;
+  getCrinzMessage: () => Promise<CrinzResponse | null>;
   autoMode: boolean;
-  lastRoastTime: string;
-  showToast: boolean;
-  fetchCount: number;
   toggleAutoMode: () => void;
-  getCrinzMessage: () => Promise<string>;
-}) {
-  const [toastVisible, setToastVisible] = useState(false);
-  const { showNotification } = useBrowserNotification();
+}
 
-  // Show toast + browser notification when needed
-  useEffect(() => {
-    if (showToast) {
-      setToastVisible(true);
-      showNotification("🎯 New Crinz Pulled", crinzMessage);
-      const t = setTimeout(() => setToastVisible(false), 3000);
-      return () => clearTimeout(t);
-    }
-  }, [showToast, crinzMessage, fetchCount, showNotification]);
+function LoggedInView({
+  crinzData,
+  showTile,
+  isFetching,
+  getCrinzMessage,
+  autoMode,
+  toggleAutoMode,
+}: Props) {
+  if (!showTile || !crinzData) return null;
+
+  const formatDate = (ts: string) => {
+    const match = ts.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3})/);
+    const dateObj = new Date(match ? match[1] : ts);
+    return isNaN(dateObj.getTime()) ? "Invalid date" : dateObj.toLocaleString();
+  };
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        minHeight: "100vh",
-        width: "100%",
-        padding: "1rem",
-        boxSizing: "border-box",
-        position: "relative"
-      }}
-    >
-      {/* Toast Notification */}
-      {toastVisible && (
-        <div
-          style={{
-            position: "absolute",
-            top: "20px",
-            background: "rgba(0, 0, 0, 0.85)",
-            color: "#00ffcc",
-            padding: "0.75rem 1.5rem",
-            borderRadius: "8px",
-            boxShadow: "0 0 10px rgba(0,255,100,0.3)",
-            fontSize: "0.95rem",
-            animation: "fadeInOut 3s ease"
-          }}
-        >
-          🎯 New Crinz Pulled — Total: {fetchCount}
+    <div style={{ width: "100%", maxWidth: "600px", margin: "1rem auto" }}>
+      <div className="crinz-post" style={{ position: "relative" }}>
+        {/* Post header */}
+        <div className="post-header">
+          <span className="user-name"> @{crinzData.userName}</span>
+          <span className="post-category">#{crinzData.category}</span>
         </div>
-      )}
 
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1.5rem", width: "100%" }}>
-        {showTile && (
-          <div
-            style={{
-              width: "100%",
-              maxWidth: "700px",
-              background: "rgba(40, 40, 40, 0.6)",
-              backdropFilter: "blur(4px)",
-              borderRadius: "12px",
-              border: "1px solid #333",
-              boxShadow: "0 0 20px rgba(0,255,100,0.08)",
-              textAlign: "center",
-              fontSize: "clamp(1rem, 2.5vw, 1.1rem)",
-              position: "relative",
-              padding: "2rem 1.5rem"
-            }}
-          >
-            <div style={{ marginBottom: "1rem", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-              {crinzMessage}
-            </div>
-
-            <button
-              onClick={() => getCrinzMessage()}
-              disabled={isFetching}
-              style={{
-                position: "absolute",
-                top: "-12px",
-                right: "-12px",
-                background: "rgba(0, 0, 0, 0.4)",
-                border: "1px solid #00ffcc",
-                borderRadius: "50%",
-                cursor: isFetching ? "not-allowed" : "pointer",
-                padding: "6px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: "38px",
-                height: "38px",
-                boxShadow: "0 0 10px rgba(0,255,100,0.3)",
-                transition: "background 0.3s ease"
-              }}
-            >
-              <span
-                role="img"
-                aria-label="refresh"
-                style={{
-                  fontSize: "1.4rem",
-                  color: "#00ffcc",
-                  opacity: isFetching ? 0.5 : 1,
-                  transition: "transform 0.3s ease",
-                  transform: isFetching ? "rotate(180deg)" : "none"
-                }}
-              >
-                🔄
-              </span>
-            </button>
-
-            <div style={{ marginTop: "1rem", fontSize: "0.85rem", color: "#888" }}>
-              Last Crinz at: {lastRoastTime || "—"}
-            </div>
-            <div style={{ marginTop: "0.4rem", fontSize: "0.85rem", color: "#888" }}>
-              Total Crinz pulls: {fetchCount}
-            </div>
+        {/* Message */}
+        <div className="post-message-container">
+          <p className="post-message">{crinzData.message}</p>
+          <div className="post-meta">
+            <span>{formatDate(crinzData.timestamp)}</span>
           </div>
-        )}
+        </div>
 
+        {/* Post actions */}
+        <div className="post-actions">
+          <span>👍 {crinzData.likeCount}</span>
+        </div>
+
+        {/* Refresh Button (absolute top-right) */}
+        <button
+          onClick={() => getCrinzMessage()}
+          disabled={isFetching}
+          className={isFetching ? "refresh-button spinning" : "refresh-button"}
+        >
+          🔄
+        </button>
+      </div>
+
+      {/* Auto Mode Toggle */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          marginTop: "1rem",
+          marginBottom: "1rem",
+        }}
+      >
         <label
           style={{
-            fontSize: "clamp(0.9rem, 2vw, 1rem)",
+            fontSize: "0.9rem",
             color: "#00ffcc",
             display: "flex",
             alignItems: "center",
-            gap: "0.5rem"
+            gap: "0.5rem",
+            background: "rgba(0,0,0,0.3)",
+            padding: "0.5rem 1rem",
+            borderRadius: "8px",
           }}
         >
           <input type="checkbox" checked={autoMode} onChange={toggleAutoMode} />
           Auto Mode (6 / 12 / 18 hrs)
         </label>
       </div>
+
+      {/* Inline styles for rotation */}
+      <style>
+        {`
+          .refresh-button {
+            position: absolute;
+            top: -18px;
+            right: -22px;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid #00ffcc;
+            border-radius: 30%;
+            width: 32px;
+            height: 32px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            color: #00ffcc;
+          }
+
+          .refresh-button:disabled {
+            cursor: not-allowed;
+          }
+
+          .spinning {
+            animation: spin 1s linear infinite;
+          }
+
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}
+      </style>
     </div>
   );
 }

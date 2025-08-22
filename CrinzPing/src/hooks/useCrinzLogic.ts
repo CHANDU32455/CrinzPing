@@ -1,19 +1,27 @@
 import { useEffect, useState, useRef } from "react";
 import { useAuth } from "react-oidc-context";
 
+export interface CrinzResponse {
+  crinzId: string;
+  userName: string;
+  category: string;
+  message: string;
+  timestamp: string;
+  likeCount: number;
+  commentCount: number;
+}
+
 export function useCrinzLogic() {
   const auth = useAuth();
-  const [crinzMessage, setCrinzMessage] = useState("");
+
+  const [crinzData, setCrinzData] = useState<CrinzResponse | null>(null);
   const [showTile, setShowTile] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
   const [autoMode, setAutoMode] = useState(true);
-  const [lastRoastTime, setLastRoastTime] = useState("");
-  const [showToast, setShowToast] = useState(false);
-  const [fetchCount, setFetchCount] = useState(0);
 
   const lastHourRef = useRef<number | null>(null);
 
-  const getCrinzMessage = async (toast = false) => {
+  const getCrinzMessage = async (): Promise<CrinzResponse | null> => {
     try {
       setIsFetching(true);
 
@@ -31,25 +39,18 @@ export function useCrinzLogic() {
       });
 
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-      const { message } = await res.json();
 
-      const now = new Date().toLocaleString();
-      setCrinzMessage(message);
-      setLastRoastTime(now);
+      const data: CrinzResponse = await res.json();
+
+      setCrinzData(data);
       setShowTile(true);
-      setFetchCount((f) => f + 1);
 
-      localStorage.setItem("crinz_cache", message);
-      localStorage.setItem("crinz_last_time", now);
+      localStorage.setItem("crinz_cache", JSON.stringify(data));
 
-      if (toast) {
-        setShowToast(true);
-        setTimeout(() => setShowToast(false), 3000);
-      }
+      return data;
     } catch (err) {
       console.error("Fetch error:", err);
-      setCrinzMessage("The roast server blinked first.");
-      setShowTile(true);
+      return null;
     } finally {
       setIsFetching(false);
     }
@@ -65,15 +66,19 @@ export function useCrinzLogic() {
   useEffect(() => {
     if (auth.isAuthenticated) {
       const cached = localStorage.getItem("crinz_cache");
-      const time = localStorage.getItem("crinz_last_time");
       const auto = localStorage.getItem("crinz_auto_enabled");
 
-      if (cached && time) {
-        setCrinzMessage(cached);
-        setLastRoastTime(time);
-        setShowTile(true);
+      if (cached) {
+        try {
+          const parsed: CrinzResponse = JSON.parse(cached);
+          setCrinzData(parsed);
+          setShowTile(true);
+        } catch {
+          localStorage.removeItem("crinz_cache");
+          getCrinzMessage();
+        }
       } else {
-        getCrinzMessage(false);
+        getCrinzMessage();
       }
 
       if (auto === "false") setAutoMode(false);
@@ -84,12 +89,11 @@ export function useCrinzLogic() {
   useEffect(() => {
     const check = () => {
       if (!autoMode || !auth.isAuthenticated) return;
-
       const hour = new Date().getHours();
       const targets = [6, 12, 18];
 
       if (targets.includes(hour) && lastHourRef.current !== hour) {
-        getCrinzMessage(true);
+        getCrinzMessage();
         lastHourRef.current = hour;
       }
     };
@@ -100,13 +104,10 @@ export function useCrinzLogic() {
 
   return {
     auth,
-    crinzMessage,
+    crinzData,
     showTile,
     isFetching,
     autoMode,
-    lastRoastTime,
-    showToast,
-    fetchCount,
     toggleAutoMode,
     getCrinzMessage,
   };

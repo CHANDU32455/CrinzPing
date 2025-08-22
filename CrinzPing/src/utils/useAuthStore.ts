@@ -1,4 +1,3 @@
-// utils/authUtils.ts
 type AuthData = {
   id_token: string;
   access_token: string;
@@ -20,42 +19,31 @@ type AuthData = {
 
 let authObject: AuthData | null = null;
 
+// store user info locally for API calls only
 export const setAuthData = (auth: AuthData) => {
+  authObject = { ...auth, profile: { ...auth.profile } };
+
   try {
-    const payload = JSON.parse(atob(auth.id_token.split(".")[1]));
-    const cognitoUsername = payload["cognito:username"];
-
-    authObject = {
-      ...auth,
-      profile: {
-        ...auth.profile,
-        cognito_username: cognitoUsername,
-      },
-    };
-
     localStorage.setItem("id_token", auth.id_token);
     localStorage.setItem("access_token", auth.access_token);
     localStorage.setItem("email", auth.profile.email);
     localStorage.setItem("sub", auth.profile.sub);
-    localStorage.setItem("cognito_username", cognitoUsername);
-
-    //console.log("Auth data set:", authObject.profile);
-    //console.log("access tkn: ", auth.access_token)
   } catch (e) {
-    console.error("Error decoding token", e);
+    console.error("Failed to save auth data locally", e);
   }
 };
 
+// read user info (always fallback to current `authObject`)
 export const getAuthItem = (key: keyof AuthData | keyof AuthData["profile"]) => {
-  if (!authObject) return localStorage.getItem(key as string); // fallback
-  return (authObject as any)[key] ?? (authObject.profile && (authObject.profile as any)[key]);
+  if (!authObject) return localStorage.getItem(key as string);
+  return (authObject as any)[key] ?? (authObject.profile as any)[key];
 };
 
+// clear stored tokens and object
 export const clearAuthData = () => {
   authObject = null;
   localStorage.removeItem("id_token");
   localStorage.removeItem("access_token");
   localStorage.removeItem("email");
   localStorage.removeItem("sub");
-  localStorage.removeItem("cognito_username");
 };

@@ -26,7 +26,6 @@ export const usePendingActions = () => {
   useEffect(() => {
     if (!hydrated) return;
     localStorage.setItem(ACTIONS_CACHE_KEY, JSON.stringify(pendingActions));
-    // console.log("🗂 Persisted pending actions:", pendingActions);
   }, [pendingActions, hydrated]);
 
   const addAction = (action: PendingAction) => {

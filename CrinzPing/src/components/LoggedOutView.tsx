@@ -1,6 +1,24 @@
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "react-oidc-context";
 import SignInButton from "./SignInButton";
 
 function LoggedOutView() {
+  const auth = useAuth();
+  const navigate = useNavigate();
+
+  // redirect if already authenticated
+  useEffect(() => {
+    if (auth.isAuthenticated) {
+      const returnTo = sessionStorage.getItem("returnTo") || "/";
+      sessionStorage.removeItem("returnTo"); // clean up
+      navigate(returnTo, { replace: true });
+    }
+  }, [auth.isAuthenticated, navigate]);
+
+  // if auth is still initializing or redirecting, optionally return null or a loader
+  if (auth.isAuthenticated) return <div>Redirecting...</div>;
+
   return (
     <div style={styles.wrapper}>
       {/* Left Section */}

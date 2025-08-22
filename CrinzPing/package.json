@@ -10,13 +10,16 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@aws-amplify/ui-react": "^6.11.2",
     "amazon-cognito-identity-js": "^6.3.15",
+    "aws-amplify": "^6.15.5",
     "axios": "^1.11.0",
     "idb": "^8.0.3",
     "jwt-decode": "^4.0.0",
     "oidc-client-ts": "^3.3.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-head": "^3.4.2",
     "react-oidc-context": "^3.3.0",
     "react-router-dom": "^7.7.1",
     "react-select": "^5.10.2",

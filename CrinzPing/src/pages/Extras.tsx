@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { ExtrasSeo } from "../components/Seo";
 import { useUserDetails } from "../hooks/UserInfo";
 import { useAuth } from "react-oidc-context";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -12,17 +13,17 @@ const Extras: React.FC = () => {
 
   const [hoveredLink, setHoveredLink] = useState<string | null>(null);
   const [signOutHovered, setSignOutHovered] = useState(false);
+  const [loggedOut, setLoggedOut] = useState(false); // track logout state
 
   useEffect(() => {
     if (location.state?.refreshUser) {
-      console.log("Refreshing user details with fresh data...");
       refreshUserDetails();
-      // clear refresh flag so it doesn't keep refreshing on re-renders
       navigate(location.pathname, { replace: true, state: {} });
     }
   }, [location.state, refreshUserDetails, navigate, location.pathname]);
 
-  if (!auth.isAuthenticated) {
+  // if user is not authenticated or just logged out
+  if (!auth.isAuthenticated || loggedOut) {
     return (
       <div className="extras-container">
         <div className="extras-card">
@@ -39,6 +40,7 @@ const Extras: React.FC = () => {
 
   return (
     <div className="extras-container">
+      <ExtrasSeo />
       <div className="extras-card">
         {error && (
           <>
@@ -111,6 +113,7 @@ const Extras: React.FC = () => {
                 auth.removeUser();
                 sessionStorage.removeItem("user_details");
                 sessionStorage.removeItem("user_details_token");
+                setLoggedOut(true); // trigger immediate re-render
               }}
               className={`extras-signout-btn ${signOutHovered ? "hovered" : ""}`}
             >

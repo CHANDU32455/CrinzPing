@@ -1,3 +1,4 @@
+/* ---------- Feed Container ---------- */
 .crinz-feed-container {
   max-width: 600px;
   margin: 1rem auto;
@@ -7,18 +8,22 @@
   flex-direction: column;
   gap: 1.5rem;
   padding: 0 1rem;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
 }
 
-/* Post Tile */
+/* ---------- Post Tile ---------- */
 .crinz-post {
   background: rgba(20, 20, 20, 0.95);
   border: 1px solid rgba(0, 255, 204, 0.2);
   border-radius: 12px;
   padding: 1.5rem;
   box-shadow: 0 0 10px rgba(0, 255, 100, 0.15);
-  min-height: 75vh;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
+  /* header + message + actions */
+  min-height: 75vh;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
@@ -27,7 +32,7 @@
   box-shadow: 0 0 20px rgba(0, 255, 100, 0.3);
 }
 
-/* Header */
+/* ---------- Header ---------- */
 .post-header {
   display: flex;
   justify-content: space-between;
@@ -49,31 +54,45 @@
   color: #999;
 }
 
-/* Centered Message Container */
-.post-message {
-  flex-grow: 1;
+/* ---------- Centered Message + Timestamp ---------- */
+.post-message-container {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   justify-content: center;
-  text-align: center;
-  margin: 1rem 0;
+  /* vertically center message */
+  align-items: center;
+  /* horizontally center message */
+  flex-grow: 1;
+  margin: 0.5rem 0;
+  width: 100%;
+  position: relative;
+  /* allows positioning timestamp */
+}
+
+.post-message {
   font-size: 1.1rem;
   line-height: 1.7;
   color: limegreen;
+  text-align: center;
   white-space: pre-wrap;
   word-break: break-word;
   padding: 0 0.5rem;
+  margin-bottom: 2rem;
+  /* leave space for timestamp */
 }
 
-/* Timestamp */
 .post-meta {
   font-size: 0.75rem;
   color: #777;
-  text-align: center;
-  margin-top: 0.5rem;
+  position: absolute;
+  bottom: 0;
+  /* stick to bottom of container */
+  right: 0.5rem;
+  /* slight right padding */
+  text-align: right;
 }
 
-/* Actions Row */
+/* ---------- Actions Row ---------- */
 .post-actions {
   display: flex;
   justify-content: center;
@@ -84,9 +103,8 @@
   flex-wrap: wrap;
 }
 
-/* Scoped buttons for actions */
 .post-actions button {
-  all: unset; /* Reset global button styles */
+  all: unset;
   display: inline-block;
   text-align: center;
   background: rgba(0, 255, 204, 0.08);
@@ -97,7 +115,6 @@
   cursor: pointer;
   transition: color 0.2s ease, background 0.2s ease, transform 0.15s ease;
   min-width: 70px;
-  text-align: center;
 }
 
 .post-actions button:hover {
@@ -112,7 +129,7 @@
   font-weight: bold;
 }
 
-/* Load More Crinz as centered clickable text */
+/* ---------- Load More ---------- */
 .load-more-text {
   display: block;
   margin: 1.5rem auto;
@@ -121,8 +138,8 @@
   color: limegreen;
   cursor: pointer;
   user-select: none;
-  transition: color 0.2s ease;
   text-align: center;
+  transition: color 0.2s ease;
 }
 
 .load-more-text:hover {
@@ -130,7 +147,7 @@
   text-decoration: underline;
 }
 
-/* Container for all three buttons side-by-side */
+/* ---------- Three Buttons Container ---------- */
 .crinz-buttons-container {
   display: flex;
   justify-content: center;
@@ -140,7 +157,6 @@
   max-width: 600px;
 }
 
-/* Style for all buttons inside container */
 .crinz-buttons-container button {
   all: unset;
   cursor: pointer;
@@ -155,7 +171,6 @@
   transition: background-color 0.3s ease, box-shadow 0.3s ease;
   user-select: none;
   min-width: 140px;
-  text-align: center;
 }
 
 .crinz-buttons-container button:hover {
@@ -163,7 +178,7 @@
   box-shadow: 0 5px 12px rgba(0, 230, 118, 0.6);
 }
 
-/* Responsive adjustments */
+/* ---------- Responsive ---------- */
 @media (max-width: 768px) {
   .crinz-post {
     min-height: 65vh;
@@ -174,6 +189,12 @@
     font-size: 1rem;
     line-height: 1.5;
     padding: 0 0.3rem;
+    margin-bottom: 1.8rem;
+  }
+
+  .post-meta {
+    bottom: 0.4rem;
+    right: 0.4rem;
   }
 
   .post-actions {
@@ -187,6 +208,63 @@
   }
 }
 
+.crinz-post.highlighted {
+  border: 2px solid #4cafef;
+  /* light blue border */
+  border-radius: 12px;
+  box-shadow: 0 0 6px rgba(76, 175, 239, 0.5);
+  /* soft glow */
+  transition: border 0.3s ease, box-shadow 0.3s ease;
+}
+
+.crinz-post.highlighted {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  /* to clip the pseudo border inside */
+}
+
+.crinz-post.highlighted::before {
+  content: "";
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border-radius: inherit;
+  background: linear-gradient(90deg,
+      #e9a9dc,
+      #c2b6f1,
+      #a8f1e2,
+      #ffe9a9,
+      #e9a9dc);
+  background-size: 300% 300%;
+  animation: borderGlow 3s linear infinite;
+  z-index: 0;
+}
+
+.crinz-post.highlighted>* {
+  position: relative;
+  z-index: 1;
+  /* keep content above glow */
+  border-radius: inherit;
+}
+
+@keyframes borderGlow {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+
 @media (max-width: 480px) {
   .crinz-feed-container {
     padding: 0 0.5rem;
@@ -198,6 +276,12 @@
 
   .post-message {
     font-size: 0.95rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .post-meta {
+    bottom: 0.3rem;
+    right: 0.3rem;
   }
 
   .post-actions {
@@ -212,3 +296,117 @@
 }
 
 
+/* CrinzFeed.css */
+.shared-post {
+  border: 5px greenyellow #ff6f61;
+  box-shadow: 0 4px 10px rgba(255, 111, 97, 0.15);
+  padding: 1rem;
+  border-radius: 10px;
+}
+
+.shared-post .post-header .user-name {
+  color: #e63946;
+}
+
+.shared-post .post-message {
+  font-size: 1.1rem;
+  line-height: 1.5;
+}
+
+/* ---- login modal ---- */
+.login-modal {
+  position: fixed;
+  inset: 0;
+  /* shorthand for top/right/bottom/left: 0 */
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+}
+
+.login-modal .modal-content {
+  background: #fff;
+  padding: 1.5rem;
+  border-radius: 1rem;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  text-align: center;
+  max-width: 90%;
+  width: 360px;
+  animation: fadeInScale 0.25s ease-out;
+}
+
+.login-modal .modal-content p {
+  margin-bottom: 1rem;
+  font-size: 1rem;
+  color: #333;
+}
+
+.login-modal .modal-content button {
+  margin: 0.5rem;
+  padding: 0.6rem 1.2rem;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.login-modal .modal-content button:first-of-type {
+  background: #ff6f61;
+  color: #fff;
+}
+
+.login-modal .modal-content button:first-of-type:hover {
+  background: #e85b4e;
+}
+
+.login-modal .modal-content button:last-of-type {
+  background: #f1f1f1;
+  color: #333;
+}
+
+.login-modal .modal-content button:last-of-type:hover {
+  background: #e0e0e0;
+}
+
+/* subtle animation */
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 📱 responsiveness */
+@media (max-width: 600px) {
+  .shared-post {
+    padding: 0.75rem;
+    border-width: 1.5px;
+  }
+
+  .shared-post .post-message {
+    font-size: 1rem;
+    /* slightly smaller */
+    line-height: 1.4;
+  }
+
+  .shared-post .post-header .user-name {
+    font-size: 0.95rem;
+  }
+}
+
+@media (max-width: 400px) {
+  .shared-post {
+    padding: 0.5rem;
+  }
+
+  .shared-post .post-message {
+    font-size: 0.9rem;
+  }
+}
