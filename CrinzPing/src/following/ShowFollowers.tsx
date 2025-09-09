@@ -71,12 +71,14 @@ const ShowFollowers: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
     marginBottom: '24px'
   };
 
-  const gridStyle: React.CSSProperties = {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-    gap: '24px',
-    padding: '16px'
-  };
+const gridStyle: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+  gap: '24px',
+  padding: '16px',
+  justifyItems: 'center', // This centers the items within their grid cells
+  justifyContent: 'center' // This centers the grid itself when there's extra space
+};
 
   const cardStyle: React.CSSProperties = {
     background: 'linear-gradient(145deg, #1a1a1a, #2d2d2d)',

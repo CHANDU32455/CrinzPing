@@ -71,7 +71,9 @@ const ShowFollowing: React.FC<{ onBack?: () => void }> = () => {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
     gap: '24px',
-    padding: '16px'
+    padding: '16px',
+    justifyItems: 'center',
+    justifyContent: 'center',
   };
 
   const cardStyle: React.CSSProperties = {
