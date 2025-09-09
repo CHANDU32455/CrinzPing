@@ -10,7 +10,7 @@ import { getAuthItem } from "../utils/useAuthStore";
 import { usePendingSync, usePendingSyncOnUnload } from "../hooks/usePendingSync";
 import { encodePostData } from "../utils/encodeDecode";
 import { FeedHighlightHandler } from "../components/FeedHighlightHandler";
-import { FloatingActionButton } from "../components/FloatingActionButton";
+
 
 const CrinzFeed: React.FC = () => {
   const { crinzPosts, fetchMessages, loading, error, hasMore, crinzNotFoundInResponse } = useCrinzMessages();
@@ -58,7 +58,7 @@ const CrinzFeed: React.FC = () => {
     );
   }, [activeModal, fetchedCommentPosts, fetchCommentsForPost, userAccessToken]);
 
-    useEffect(() => {
+  useEffect(() => {
     if (hydrated && !didMountSync.current && pendingActions.length > 0) {
       didMountSync.current = true;
       handleBatchSync();
@@ -71,7 +71,13 @@ const CrinzFeed: React.FC = () => {
       fetchMessages(false, highlightId);
       if (error) console.error("❌ Crinz feed error:", error);
     }
-  }, [highlightId, crinzPosts, fetchMessages]);
+  }, [highlightId, crinzPosts, fetchMessages, error]);
+
+  // 🔹 Always fetch fresh data on mount
+  {/**  useEffect(() => {
+    fetchMessages(true);
+  }, []);
+ */}
 
   const normalizeTimestamp = (ts: string) => {
     const match = ts.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3})/);
@@ -84,8 +90,6 @@ const CrinzFeed: React.FC = () => {
     const dateObj = new Date(normalized);
     return isNaN(dateObj.getTime()) ? "Invalid date" : dateObj.toLocaleString();
   };
-
-  const handleAddCrinz = () => navigate("/contributeCrinz");
 
   return (
     <div className="crinz-feed-container">
@@ -100,6 +104,41 @@ const CrinzFeed: React.FC = () => {
         ready={crinzPosts.length > 0}
       />
 
+      <button
+        onClick={() => fetchMessages(true)}
+        style={{
+          position: "fixed",
+          top: "10%",
+          left: "10%",
+          zIndex: 5,
+          background: "white",
+          border: "1px solid #ddd",
+          borderRadius: "50%",
+          padding: "8px",
+          cursor: "pointer",
+          boxShadow: "0 2px 6px rgba(0,0,0,0.2)"
+        }}
+        disabled={loading}
+      >
+        <span
+          style={{
+            display: "inline-block",
+            animation: loading ? "spin 1s linear infinite" : "none"
+          }}
+        >
+          🔄
+        </span>
+      </button>
+
+      <style>
+        {`
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+`}
+      </style>
+
       {crinzPosts.map((post) => (
         <div
           key={post.crinzId}
@@ -107,8 +146,20 @@ const CrinzFeed: React.FC = () => {
           className={`crinz-post ${post.crinzId === highlightedId ? "highlighted" : ""}`}
         >
           <div className="post-header">
-            <span className="user-name">@{post.userName}</span>
-            <span className="post-category">#{post.category}</span>
+            <span
+              className="user-name"
+              style={{
+                cursor: "pointer",
+                color: "#00aaff",
+                fontWeight: 600,
+                textDecoration: "none",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
+              onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
+              onClick={() => navigate(`/profile/${post.userId}`)}
+            >
+              @{post.userName} <br />
+            </span>
           </div>
           <div className="post-message-container">
             <p className="post-message">{post.message}</p>
@@ -148,7 +199,7 @@ const CrinzFeed: React.FC = () => {
               }}
             >
               {sharedLink === `${window.location.origin}/post/${encodePostData(post)}`
-                ? "✅ Shared"
+                ? "✅ linkCopied"
                 : "🔗 Share"}
             </button>
           </div>
@@ -172,13 +223,6 @@ const CrinzFeed: React.FC = () => {
           ) : (
             <p className="all-fetched-text">🎉 All Crinzes fetched!</p>
           )}
-
-          <FloatingActionButton
-            onClick={handleAddCrinz}
-            icon="➕"
-            size={60}
-            color="#1a2531ff"
-          />
         </>
       )}
 

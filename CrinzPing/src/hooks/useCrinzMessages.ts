@@ -2,13 +2,13 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 
 export interface CrinzPost {
   crinzId: string;
-  category: string;
   message: string;
   timestamp: string;
   userId: string;
   userName: string;
   likeCount: number;
   commentCount: number;
+  tags?: string[];
   isLiked?: boolean;
 }
 

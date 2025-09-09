@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "react-oidc-context";
-import SignInButton from "./SignInButton";
+import SignUpButton from "./signupButton";
 
 function LoggedOutView() {
   const auth = useAuth();
@@ -44,7 +44,7 @@ function LoggedOutView() {
         <div style={styles.card}>
           <h2 style={styles.subHeading}>Join the Roast Arena</h2>
           <p style={styles.footerText}>Sign in to start roasting (or be roasted)</p>
-          <SignInButton />
+          <SignUpButton />
           <p style={styles.note}>⚠️ Warning: You may laugh till you cry.</p>
         </div>
       </div>

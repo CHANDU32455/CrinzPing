@@ -1,19 +1,30 @@
 import React, { useState, useMemo } from "react";
 import { jwtDecode } from "jwt-decode";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import { processAvatarFile } from "../utils/imageProcessor";
 import Select from "react-select";
+import { useAuth } from "react-oidc-context";
+import "../css/UserDetailsForm.css";
+import { useUserDetails, type UserDetails } from "../hooks/UserInfo";
 
 const UserDetailsForm = () => {
     const location = useLocation();
+    const navigate = useNavigate();
+    const { user } = useAuth();
+    const { updateUserDetails, userDetails: cachedUserDetails } = useUserDetails(user?.profile.sub);
+
     const routeState = location.state as { userDetails?: any } | null;
-    const userDetails = routeState?.userDetails;
+    const userDetails = routeState?.userDetails || cachedUserDetails;
 
     const [displayName, setDisplayName] = useState(userDetails?.displayName || "");
+    const [Tagline, setTagline] = useState(userDetails?.Tagline || "");
     const [timeZone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone);
     const [categories, setCategories] = useState<string[]>(userDetails?.categories || []);
     const [baselineDetails, setBaselineDetails] = useState({
         displayName: userDetails?.displayName || "",
+        Tagline: userDetails?.Tagline || "",
         categories: userDetails?.categories || [],
+        profilePic: userDetails?.profilePic || "",
     });
 
     const [selectedCategory, setSelectedCategory] = useState<{ label: string; value: string } | null>(null);
@@ -21,7 +32,10 @@ const UserDetailsForm = () => {
     const [useDropdown, setUseDropdown] = useState(true);
     const [status, setStatus] = useState<"idle" | "posting" | "success" | "error">("idle");
 
-    const token = localStorage.getItem("access_token");
+    const [profilePic, setProfilePic] = useState<string>(userDetails?.profilePic || "");
+    const [avatarPreview, setAvatarPreview] = useState<string>(userDetails?.profilePic || "");
+
+    const token = user?.access_token;
     if (!token) {
         console.warn("Missing access token for getUserDetails");
         return <div>Access token missing</div>;
@@ -50,9 +64,11 @@ const UserDetailsForm = () => {
     const hasChanges = useMemo(() => {
         return (
             displayName.trim() !== baselineDetails.displayName.trim() ||
-            JSON.stringify([...categories].sort()) !== JSON.stringify([...baselineDetails.categories].sort())
+            Tagline.trim() !== baselineDetails.Tagline.trim() ||
+            JSON.stringify([...categories].sort()) !== JSON.stringify([...baselineDetails.categories].sort()) ||
+            profilePic !== baselineDetails.profilePic
         );
-    }, [displayName, categories, baselineDetails]);
+    }, [displayName, Tagline, categories, profilePic, baselineDetails]);
 
     const handleAddCategory = () => {
         if (useDropdown && selectedCategory) {
@@ -73,47 +89,74 @@ const UserDetailsForm = () => {
         setCategories(categories.filter((c) => c !== cat));
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!isFormValid || !hasChanges) return;
+   const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isFormValid || !hasChanges) return;
 
-        setStatus("posting");
+    setStatus("posting");
 
-        if (!email || !userId) {
-            setStatus("error");
-            console.error("Missing user details from token");
-            return;
-        }
+    if (!email || !userId || !token) {
+        setStatus("error");
+        console.error("Missing user details or token");
+        return;
+    }
 
-        const payload = {
-            userId,
-            email,
-            displayName,
-            timeZone,
-            preferences: { categories },
-        };
-
-        try {
-            const res = await fetch(import.meta.env.VITE_POST_USER_DETAILS_API_URL, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify(payload),
-            });
-
-            if (!res.ok) throw new Error("Failed to post");
-            setStatus("success");
-
-            // Update baseline to match the newly saved data
-            setBaselineDetails({ displayName, categories: [...categories] });
-        } catch (err) {
-            console.error(err);
-            setStatus("error");
-        }
+    const payload: UserDetails = {
+        userId,
+        email,
+        displayName,
+        Tagline: Tagline.trim(),
+        timeZone,
+        preferences: { categories },
+        profilePic,
+        categories,
+        profilePicPath: userDetails?.profilePicPath,
     };
 
+    try {
+        // First update the cache for immediate UI response
+        updateUserDetails?.(payload, false);
+        
+        // Then make the actual API call
+        const apiUrl = import.meta.env.VITE_POST_USER_DETAILS_API_URL;
+        const response = await fetch(apiUrl, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+            throw new Error(`API error: ${response.status}`);
+        }
+
+        setStatus("success");
+
+        // update baseline so "Save" button disables
+        setBaselineDetails({ 
+            displayName, 
+            Tagline: Tagline.trim(),
+            categories: [...categories], 
+            profilePic 
+        });
+
+        // Wait for 3 seconds on success before navigating
+        setTimeout(() => {
+            navigate("/extras", { state: { userDetails: payload } });
+        }, 3000);
+
+    } catch (err) {
+        console.error("Submission failed:", err);
+        setStatus("error");
+        // Revert cache update if API call failed
+        if (userDetails) {
+            updateUserDetails?.(userDetails, false);
+        }
+        // Stay on this page on error
+    }
+};
     const defaultCategories = [
         "General",
         "LoveFails",
@@ -134,176 +177,84 @@ const UserDetailsForm = () => {
 
     const categoryOptions = defaultCategories.map(cat => ({ label: cat, value: cat }));
 
-    const pageStyles = {
-        wrapper: {
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            minHeight: "100vh",
-            backgroundColor: "#000",
-            padding: "1rem",
-        },
-    };
-
-    const styles = {
-        container: {
-            fontFamily: "monospace",
-            backgroundColor: "#0a0a0a",
-            color: "limegreen",
-            padding: "2rem",
-            borderRadius: "10px",
-            boxShadow: "0 0 12px limegreen",
-            width: "100%",
-            maxWidth: "520px",
-            display: "flex",
-            flexDirection: "column" as const,
-        },
-        label: {
-            marginTop: "1.5rem",
-            marginBottom: "0.5rem",
-            fontSize: "1rem",
-            fontWeight: "bold",
-        },
-        note: {
-            fontSize: "0.8rem",
-            color: "#aaa",
-            marginBottom: "0.5rem",
-        },
-        switchWrapper: {
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: "0.8rem",
-            padding: "0.3rem 0",
-        },
-        switchLabel: {
-            fontSize: "0.9rem",
-            color: "#aaa",
-        },
-        switch: {
-            position: "relative" as const,
-            width: "70px",
-            height: "28px",
-            background: useDropdown ? "limegreen" : "#555",
-            borderRadius: "28px",
-            cursor: "pointer",
-            transition: "background 0.3s",
-            display: "flex",
-            alignItems: "center",
-            padding: "0 5px",
-        },
-        switchCircle: {
-            position: "absolute" as const,
-            top: "3px",
-            left: useDropdown ? "40px" : "4px",
-            width: "22px",
-            height: "22px",
-            background: "#fff",
-            borderRadius: "50%",
-            transition: "left 0.3s",
-        },
-        switchText: {
-            fontSize: "0.7rem",
-            color: "#000",
-            fontWeight: "bold",
-            width: "100%",
-            textAlign: "center" as const,
-            zIndex: 1,
-        },
-        inputRow: {
-            display: "flex",
-            gap: "0.5rem",
-            marginTop: "0.5rem",
-        },
-        input: {
-            flex: 1,
-            padding: "0.5rem",
-            border: "1px solid limegreen",
-            backgroundColor: "#111",
-            color: "lime",
-            fontSize: "1rem",
-            borderRadius: "4px",
-        },
-        addButton: {
-            padding: "0.5rem 1rem",
-            backgroundColor: "limegreen",
-            color: "#000",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer",
-            fontWeight: "bold",
-        },
-        chipsContainer: {
-            display: "flex",
-            flexWrap: "wrap" as const,
-            gap: "0.5rem",
-            marginTop: "0.8rem",
-        },
-        chip: {
-            display: "flex",
-            alignItems: "center",
-            backgroundColor: "#1a1a1a",
-            color: "limegreen",
-            padding: "0.35rem 0.7rem",
-            borderRadius: "16px",
-            fontSize: "0.85rem",
-            border: "1px solid limegreen",
-            transition: "all 0.2s ease",
-        },
-        chipClose: {
-            marginLeft: "0.5rem",
-            color: "#888",
-            cursor: "pointer",
-            fontWeight: "bold",
-            transition: "color 0.2s ease",
-        },
-        button: {
-            marginTop: "2rem",
-            padding: "0.75rem 1.5rem",
-            backgroundColor: isFormValid && hasChanges ? "limegreen" : "#333",
-            color: isFormValid && hasChanges ? "#0a0a0a" : "#777",
-            fontWeight: "bold",
-            border: "none",
-            borderRadius: "6px",
-            cursor: isFormValid && hasChanges ? "pointer" : "not-allowed",
-            boxShadow: isFormValid && hasChanges ? "0 0 5px lime" : "none",
-            transition: "all 0.2s ease",
-        },
-        status: {
-            marginTop: "1rem",
-            fontStyle: "italic",
-            textAlign: "center" as const,
-            color: status === "error" ? "red" : "yellowgreen",
-        },
-    };
+    const DEFAULT_AVATAR = "data:image/svg+xml;base64," + btoa(
+        `<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'>
+            <rect width='120' height='120' fill='#ccc'/>
+            <text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-size='14' fill='#666'>
+                No Image
+            </text>
+        </svg>`
+    );
 
     return (
-        <div style={pageStyles.wrapper}>
-            <form onSubmit={handleSubmit} style={styles.container}>
-                <label style={styles.label}>Display Name:</label>
+        <div className="user-details-form">
+            <form onSubmit={handleSubmit} className="user-details-form__container">
+                {/* Avatar Upload */}
+                <label className="user-details-form__label">Profile Picture:</label>
+                <div className="user-details-form__avatar-container">
+                    <img
+                        src={avatarPreview || DEFAULT_AVATAR}
+                        alt="Preview"
+                        className="user-details-form__avatar-preview"
+                    />
+                    <input
+                        type="file"
+                        accept="image/*"
+                        className="user-details-form__avatar-input"
+                        onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            try {
+                                const processed = await processAvatarFile(file);
+                                setAvatarPreview(processed);
+                                setProfilePic(processed);
+                            } catch (err) {
+                                console.error("Avatar processing failed:", err);
+                            }
+                        }}
+                    />
+                </div>
+
+                <label className="user-details-form__label">Display Name:</label>
                 <input
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
-                    style={styles.input}
+                    className="user-details-form__input"
                     placeholder="NeoNinja87"
                 />
 
-                <label style={styles.label}>Preferred Categories</label>
-                <div style={styles.note}>This helps us personalize your experience.</div>
+                <label className="user-details-form__label">Tagline:</label>
+                <textarea
+                    value={Tagline}
+                    onChange={(e) => setTagline(e.target.value)}
+                    className="user-details-form__textarea"
+                    placeholder="Tell us something about yourself..."
+                    rows={3}
+                    maxLength={150}
+                />
+                <div className="user-details-form__char-count">
+                    {Tagline.length}/150 characters
+                </div>
+
+                <label className="user-details-form__label">Preferred Categories</label>
+                <span className="user-details-form__note">This helps us personalize your experience.</span>
 
                 {/* Switch */}
-                <div style={styles.switchWrapper}>
-                    <span style={styles.switchLabel}>
+                <div className="user-details-form__switch-wrapper">
+                    <span className="user-details-form__switch-label">
                         {useDropdown ? "Dropdown Mode" : "Manual Mode"}
                     </span>
-                    <div style={styles.switch} onClick={() => setUseDropdown(prev => !prev)}>
-                        <span style={styles.switchText}>{useDropdown ? "Drop" : "Input"}</span>
-                        <div style={styles.switchCircle}></div>
+                    <div
+                        className={`user-details-form__switch ${useDropdown ? 'user-details-form__switch--active' : ''}`}
+                        onClick={() => setUseDropdown(prev => !prev)}
+                    >
+                        <span className="user-details-form__switch-text">{useDropdown ? "Drop" : "Input"}</span>
+                        <div className={`user-details-form__switch-circle ${useDropdown ? 'user-details-form__switch-circle--active' : ''}`}></div>
                     </div>
                 </div>
 
                 {/* Dropdown or Input */}
-                <div style={styles.inputRow}>
+                <div className="user-details-form__input-row">
                     {useDropdown ? (
                         <Select
                             options={categoryOptions}
@@ -311,56 +262,29 @@ const UserDetailsForm = () => {
                             onChange={(selected) => setSelectedCategory(selected)}
                             isClearable
                             placeholder="Select a category"
-                            styles={{
-                                control: (base) => ({
-                                    ...base,
-                                    background: "#2a2a3d",
-                                    borderColor: "#444",
-                                    color: "#fff",
-                                    minHeight: "40px",
-                                    boxShadow: "none",
-                                    "&:hover": { borderColor: "limegreen" },
-                                }),
-                                singleValue: (base) => ({ ...base, color: "#fff" }),
-                                menu: (base) => ({
-                                    ...base,
-                                    background: "#1e1e2f",
-                                    color: "#fff",
-                                    border: "1px solid #444",
-                                }),
-                                option: (base, state) => ({
-                                    ...base,
-                                    backgroundColor: state.isFocused ? "#333" : "#1e1e2f",
-                                    color: "#fff",
-                                    cursor: "pointer",
-                                }),
-                                placeholder: (base) => ({ ...base, color: "#aaa" }),
-                                input: (base) => ({ ...base, color: "#fff" }),
-                            }}
+                            classNamePrefix="react-select"
                         />
                     ) : (
                         <input
                             value={newCategory}
                             onChange={(e) => setNewCategory(e.target.value)}
-                            style={styles.input}
+                            className="user-details-form__input"
                             placeholder="Enter custom category"
                             onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddCategory())}
                         />
                     )}
-                    <button type="button" onClick={handleAddCategory} style={styles.addButton}>
+                    <button type="button" onClick={handleAddCategory} className="user-details-form__add-button">
                         Add
                     </button>
                 </div>
 
                 {/* Chips */}
-                <div style={styles.chipsContainer}>
+                <div className="user-details-form__chips-container">
                     {categories.map((cat) => (
-                        <div key={cat} style={styles.chip}>
+                        <div key={cat} className="user-details-form__chip">
                             {cat}
                             <span
-                                style={styles.chipClose}
-                                onMouseOver={(e) => (e.currentTarget.style.color = "red")}
-                                onMouseOut={(e) => (e.currentTarget.style.color = "#888")}
+                                className="user-details-form__chip-close"
                                 onClick={() => handleRemoveCategory(cat)}
                             >
                                 ✕
@@ -371,21 +295,13 @@ const UserDetailsForm = () => {
 
                 <button
                     type="submit"
-                    style={{
-                        ...styles.button,
-                        ...((!isFormValid || !hasChanges || status === "posting") && {
-                            backgroundColor: "#333",
-                            color: "#777",
-                            cursor: "not-allowed",
-                            boxShadow: "none",
-                        }),
-                    }}
+                    className={`user-details-form__button ${isFormValid && hasChanges && status !== "posting" ? 'user-details-form__button--active' : ''}`}
                     disabled={!isFormValid || !hasChanges || status === "posting"}
                 >
                     {status === "posting" ? "Saving..." : "🌀 Save Details"}
                 </button>
 
-                <div style={styles.status}>
+                <div className={`user-details-form__status ${status === "success" ? 'user-details-form__status--success' : ''}`}>
                     {status !== "idle" && `Status: ${status}`}
                 </div>
             </form>

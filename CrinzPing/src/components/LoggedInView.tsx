@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import type { CrinzResponse } from "../hooks/useCrinzLogic";
 
 interface Props {
@@ -24,14 +25,26 @@ function LoggedInView({
     const dateObj = new Date(match ? match[1] : ts);
     return isNaN(dateObj.getTime()) ? "Invalid date" : dateObj.toLocaleString();
   };
+  
 
   return (
     <div style={{ width: "100%", maxWidth: "600px", margin: "1rem auto" }}>
       <div className="crinz-post" style={{ position: "relative" }}>
         {/* Post header */}
         <div className="post-header">
-          <span className="user-name"> @{crinzData.userName}</span>
-          <span className="post-category">#{crinzData.category}</span>
+          <Link
+            to={`/profile/${crinzData.userId}`}
+            style={{
+              cursor: "pointer",
+              color: "#00aaff",
+              fontWeight: 600,
+              textDecoration: "none",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
+            onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
+          >
+            @{crinzData.userName}
+          </Link>
         </div>
 
         {/* Message */}

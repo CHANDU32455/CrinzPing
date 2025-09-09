@@ -60,7 +60,7 @@ function Home() {
       {auth.isLoading ? (
         <div>Loading...</div>
       ) : auth.error ? (
-        <div>Error: {auth.error.message}</div>
+        <div>Error: {typeof auth.error === "string" ? auth.error : auth.error?.message}</div>
       ) : auth.isAuthenticated ? (
         <LoggedInView
           crinzData={localCrinz}

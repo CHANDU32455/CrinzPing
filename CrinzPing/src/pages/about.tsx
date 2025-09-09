@@ -6,43 +6,44 @@ export default function AboutApp() {
             <AboutSeo />
             <h1 style={styles.heading}>About CrinzPing 🔥</h1>
             <p style={styles.desc}>
-                CrinzPing isn’t your regular social app. 
-                It’s a savage feed that keeps life fun, bold, and brutally honest. 
-                Our mission is simple: drop <strong>the funniest, most ruthless crinzes</strong> straight into your feed — 
-                powered by the community and tuned for laughs.
+                CrinzPing isn’t your average “be-nice” social app.  
+                It’s a wild feed of <b>roasts, savage vibes, and unapologetic laughs</b>.  
+                Built for the bold, powered by the community — and evolving faster than your ego can recover.
             </p>
 
-            <h2 style={styles.subHeading}>What’s Live Right Now ⚡</h2>
+            <h2 style={styles.subHeading}>What’s Hot Right Now ⚡</h2>
             <ul style={styles.list}>
-                <li>📡 <strong>Real-time feed</strong> with instant crinz updates</li>
-                <li>👍 <strong>Likes & comments</strong> so every roast gets its moment</li>
-                <li>💾 <strong>Smart caching</strong> for lightning-fast scrolling</li>
-                <li>📶 <strong>Local-first actions</strong> — like, comment, laugh even offline</li>
-                <li>🛡️ <strong>Robust error handling</strong> so nothing breaks the fun</li>
+                <li>👤 <strong>Enhanced profiles</strong> — flex your crinzes, your way</li>
+                <li>💬 <strong>Comments & likes</strong> — every roast gets its hype</li>
+                <li>✏️ <strong>Edit & delete</strong> your own posts like a boss</li>
+                <li>🌍 <strong>Public profiles & posts</strong> — share your crinz legacy anywhere</li>
+                <li>🔗 <strong>Sharable links</strong> for profiles & roasts — go viral, instantly</li>
             </ul>
 
-            <h2 style={styles.subHeading}>What Makes CrinzPing Unique?</h2>
+            <h2 style={styles.subHeading}>Why CrinzPing Hits Different</h2>
             <ul style={styles.list}>
-                <li>⚡ Savage content tailored for bold personalities</li>
-                <li>🤝 100% community-driven crinz contributions</li>
-                <li>📱 Mobile-first design — feels like an app, runs everywhere</li>
+                <li>⚡ Unfiltered content with zero fluff</li>
+                <li>🤝 Driven by a fearless community of crinzers</li>
+                <li>📱 Feels like an app, runs everywhere</li>
             </ul>
 
             <h2 style={styles.subHeading}>What’s Next 🚀</h2>
             <p style={styles.desc}>
-                We’re already working on the next evolution of CrinzPing:
+                We’re not stopping — we’re just leveling up:
             </p>
             <ul style={styles.list}>
-                <li>🔥 Personalized crinz recommendations powered by AI</li>
-                <li>🏆 Leaderboards for the top crinzers</li>
-                <li>💬 Global roast rooms & community threads</li>
-                <li>📱 Push notifications for daily laughs</li>
-                <li>🪄 User profile customizations & achievements</li>
+                <li>🔥 AI-powered crinz recommendations</li>
+                <li>🏆 Leaderboards to crown top crinzers</li>
+                <li>💬 Roast rooms & global threads</li>
+                <li>📱 Push notifications for daily burns</li>
+                <li>🪄 Profile customizations, badges & achievements</li>
             </ul>
 
             <p style={styles.footer}>
-                CrinzPing is for the fearless. If you can laugh at yourself, 
-                you’ll never run out of reasons to stay. Buckle up — the roast culture just went live. 🔥
+                CrinzPing is for the fearless.  
+                Roast, laugh, repeat.  
+                Your profile, your posts, your vibe — now public, now viral.  
+                Buckle up — the culture of savage honesty is only getting started. 🔥
             </p>
         </div>
     )
@@ -84,19 +85,6 @@ const styles = {
     listStyle: "none",
     paddingLeft: "0",
     marginBottom: "2rem",
-  },
-  listItem: {
-    display: "flex",
-    alignItems: "flex-start",
-    fontSize: "1rem",
-    marginBottom: "0.8rem",
-    lineHeight: 1.6,
-  },
-  emoji: {
-    display: "inline-block",
-    width: "1.5rem",
-    marginRight: "0.6rem",
-    fontSize: "1.2rem",
   },
   footer: {
     marginTop: "3rem",

@@ -19,7 +19,6 @@ type AuthData = {
 
 let authObject: AuthData | null = null;
 
-// store user info locally for API calls only
 export const setAuthData = (auth: AuthData) => {
   authObject = { ...auth, profile: { ...auth.profile } };
 
@@ -29,21 +28,29 @@ export const setAuthData = (auth: AuthData) => {
     localStorage.setItem("email", auth.profile.email);
     localStorage.setItem("sub", auth.profile.sub);
   } catch (e) {
-    console.error("Failed to save auth data locally", e);
+    console.error("failed to save auth data locally", e);
   }
 };
 
-// read user info (always fallback to current `authObject`)
-export const getAuthItem = (key: keyof AuthData | keyof AuthData["profile"]) => {
+export const getAuthItem = (
+  key: keyof AuthData | keyof AuthData["profile"]
+) => {
   if (!authObject) return localStorage.getItem(key as string);
   return (authObject as any)[key] ?? (authObject.profile as any)[key];
 };
 
-// clear stored tokens and object
 export const clearAuthData = () => {
   authObject = null;
   localStorage.removeItem("id_token");
   localStorage.removeItem("access_token");
   localStorage.removeItem("email");
   localStorage.removeItem("sub");
+
+  // clear cached session-level items too
+  sessionStorage.removeItem("user_details");
+  sessionStorage.removeItem("user_details_token");
+  sessionStorage.removeItem("user_feed");
+  sessionStorage.removeItem("user_feed_token");
+  sessionStorage.removeItem("crinz_messages_cache")
+  sessionStorage.removeItem("crinz_messages_cache_token")
 };

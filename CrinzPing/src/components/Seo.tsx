@@ -3,7 +3,7 @@ import { Title, Meta } from "react-head";
 import type { ReactNode } from "react";
 
 // global constants
-export const BASE_URL = "https://CrinzPing.netlify.app";
+export const BASE_URL = import.meta.env.VITE_COGNITO_LOGOUT_URI; // thats the base url..
 export const OG_IMAGE = `${BASE_URL}/CrinzPing.png`;
 
 type SeoBlock = () => ReactNode;

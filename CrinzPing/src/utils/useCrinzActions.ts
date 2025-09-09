@@ -14,11 +14,11 @@ interface Comment {
 interface Post {
     crinzId: string;
     userName: string;
-    category: string;
     message: string;
     timestamp: string | number;
     likeCount: number;
     commentCount: number;
+    tags?: string[];
     isLiked?: boolean;
 }
 

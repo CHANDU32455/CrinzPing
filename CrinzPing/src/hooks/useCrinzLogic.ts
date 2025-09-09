@@ -3,6 +3,7 @@ import { useAuth } from "react-oidc-context";
 
 export interface CrinzResponse {
   crinzId: string;
+  userId: string;
   userName: string;
   category: string;
   message: string;
@@ -46,7 +47,7 @@ export function useCrinzLogic() {
       setShowTile(true);
 
       localStorage.setItem("crinz_cache", JSON.stringify(data));
-
+      
       return data;
     } catch (err) {
       console.error("Fetch error:", err);
