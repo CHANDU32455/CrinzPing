@@ -117,8 +117,6 @@ const useFollow = (userId?: string) => {
         url += `&lastKey=${encodeURIComponent(JSON.stringify(followersLastKey))}`;
       }
 
-      console.log(`[useFollow] GET request to: ${url}`);
-
       const response = await fetch(url, {
         method: "GET",
         headers: {
@@ -139,8 +137,6 @@ const useFollow = (userId?: string) => {
 
       setFollowersList(newList);
       setFollowersLastKey(data.lastKey || null);
-
-      console.log("[useFollow] followersList:", newList);
 
       followersFetched.current = true;
     } catch (err) {
@@ -179,8 +175,6 @@ const useFollow = (userId?: string) => {
     if (followingLastKey) {
       url += `&lastKey=${encodeURIComponent(JSON.stringify(followingLastKey))}`;
     }
-
-    console.log(`[useFollow] GET request to: ${url}`);
 
     const response = await fetch(url, {
       method: "GET",

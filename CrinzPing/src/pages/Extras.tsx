@@ -58,33 +58,33 @@ const Extras: React.FC = () => {
     console.log("Data export requested by user");
   };
 
-const handleDeleteAccountClick = async () => {
-  if (!deleteConfirm) {
-    setDeleteConfirm(true);
-    setShowDeleteModal(true);
-    return;
-  }
-
-  try {
-    console.log("✅ account deletion confirmed");
-    setDeleting(true); // start deleting
-
-    const result = await deleteUserAccount(
-      auth?.user?.profile?.sub,
-      auth?.user?.access_token
-    );
-
-    if (!result.success) {
-      console.error("❌ deletion failed:", result.error);
-    } else {
-      console.log("🗑️ deletion success!");
+  const handleDeleteAccountClick = async () => {
+    if (!deleteConfirm) {
+      setDeleteConfirm(true);
+      setShowDeleteModal(true);
+      return;
     }
-  } finally {
-    setDeleting(false); // reset states
-    setDeleteConfirm(false);
-    setShowDeleteModal(false);
-  }
-};
+
+    try {
+      console.log("✅ account deletion confirmed");
+      setDeleting(true); // start deleting
+
+      const result = await deleteUserAccount(
+        auth?.user?.profile?.sub,
+        auth?.user?.access_token
+      );
+
+      if (!result.success) {
+        console.error("❌ deletion failed:", result.error);
+      } else {
+        console.log("🗑️ deletion success!");
+      }
+    } finally {
+      setDeleting(false); // reset states
+      setDeleteConfirm(false);
+      setShowDeleteModal(false);
+    }
+  };
 
   const handleCancelDelete = () => {
     setDeleteConfirm(false);
@@ -321,11 +321,11 @@ const handleDeleteAccountClick = async () => {
               <div className="extras-app-info">
                 <div className="extras-info-item">
                   <span className="extras-label">Version:</span>
-                  <span className="extras-value">1.0.0</span>
+                  <span className="extras-value">1.0.1</span>
                 </div>
                 <div className="extras-info-item">
                   <span className="extras-label">Build:</span>
-                  <span className="extras-value">2024.01.01</span>
+                  <span className="extras-value">2025.09.09</span>
                 </div>
               </div>
             </div>
