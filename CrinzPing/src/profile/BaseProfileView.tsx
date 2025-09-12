@@ -36,7 +36,6 @@ const BaseProfileView: React.FC<BaseProfileProps> = ({
   showEdit,
   showSignout,
   onEdit,
-  allowActions = true,
   onPostClick,
   // New props for pre-loaded data
   userDetails: preloadedUserDetails,
@@ -71,28 +70,36 @@ const BaseProfileView: React.FC<BaseProfileProps> = ({
     : userDetails?.profilePic || DEFAULT_AVATAR;
 
   const shareProfile = () => {
-    if (!userDetails?.userId || !allowActions) return;
+  const targetUser = userDetails;
+  if (!targetUser?.userId) return; // must have a userId
 
-    const publicData = {
-      userDetails: {
-        userId: userDetails.userId,
-        displayName: userDetails.displayName,
-        profilePic: userDetails.profilePic,
-        email: userDetails.email,
-      },
-      crinzMessages: uniqueMessages.slice(0, 5).map(msg => ({
-        crinzId: msg.crinzId,
-        message: msg.message,
-      })),
-    };
-
-    const encoded = encodePostData(publicData);
-    const shareUrl = `${window.location.origin}/public-profile?data=${encoded}`;
-
-    navigator.clipboard.writeText(shareUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  // Include top 5 messages if available
+  const publicData = {
+    userDetails: {
+      userId: targetUser.userId,
+      displayName: targetUser.displayName,
+      profilePic: targetUser.profilePic,
+      email: targetUser.email,
+    },
+    crinzMessages: (crinzMessages || []).slice(0, 5).map(msg => ({
+      crinzId: msg.crinzId,
+      message: msg.message,
+    })),
   };
+
+  const encoded = encodePostData(publicData);
+  const shareUrl = `${window.location.origin}/public-profile?data=${encoded}`;
+
+  navigator.clipboard.writeText(shareUrl)
+    .then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    })
+    .catch(err => {
+      console.error("Failed to copy share URL", err);
+    });
+};
+
 
   const handleShowFollowers = () => {
     if (userDetails?.userId) {
@@ -165,14 +172,13 @@ const BaseProfileView: React.FC<BaseProfileProps> = ({
             </h1>
             <p className="profile-email">{userDetails?.email || ""}</p>
           </div>
-          {allowActions && (
-            <Follow
-              userId={userDetails?.userId}
-              isOwnProfile={!userSub || userSub === auth.user?.profile?.sub}
-              onShowFollowers={handleShowFollowers}
-              onShowFollowing={handleShowFollowing}
-            />
-          )}
+
+          <Follow
+            userId={userDetails?.userId}
+            isOwnProfile={!userSub || userSub === auth.user?.profile?.sub}
+            onShowFollowers={handleShowFollowers}
+            onShowFollowing={handleShowFollowing}
+          />
         </div>
 
         <div className="profile-section">

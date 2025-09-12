@@ -342,23 +342,24 @@ export const useUserDetails = (userSub?: string) => {
   );
 
   // -------- Update user details --------
-  const updateUserDetails = useCallback(
-    (details: UserDetails, refreshPic = false) => {
-      setUserDetails(details);
-      if (userSub) {
-        userCache[userSub] = details;
-        console.log("[useUserDetails] User details updated:", details.userId);
+  // Simplified updateUserDetails function
+const updateUserDetails = useCallback(
+  (details: UserDetails, refreshPic = false) => {
+    setUserDetails(details);
+    if (userSub) {
+      userCache[userSub] = details;
+      console.log("[useUserDetails] User details updated:", details.userId);
 
-        if (refreshPic) {
-          // Bust both cache + localStorage and refetch
-          delete userCache[userSub];
-          saveCachedPic(userSub, undefined);
-          fetchUserDetails(true);
-        }
+      if (refreshPic) {
+        // Bust both cache + localStorage and refetch
+        delete userCache[userSub];
+        saveCachedPic(userSub, undefined);
+        fetchUserDetails(true);
       }
-    },
-    [userSub, fetchUserDetails]
-  );
+    }
+  },
+  [userSub, fetchUserDetails]
+);
 
   return {
     userDetails,

@@ -129,6 +129,26 @@
   font-weight: bold;
 }
 
+
+.no-results {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+}
+
+.clear-search-button {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.clear-search-button:hover {
+  background: #0056b3;
+}
 /* ---------- Load More ---------- */
 .load-more-text {
   display: block;

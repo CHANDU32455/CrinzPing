@@ -149,64 +149,64 @@ const useFollow = (userId?: string) => {
 
 
   const fetchFollowing = async (append = false, force = false) => {
-  if (!userId) return;
+    if (!userId) return;
 
-  // cache check (only if not paginating and not force reloading)
-  if (!append && cache.following.has(userId) && !force) {
-    console.log("[useFollow] Using cached following for:", userId);
-    setFollowingList(cache.following.get(userId)!);
-    followingFetched.current = true;
-    return;
-  }
-
-  if (followingFetched.current && !append && !force) {
-    return;
-  }
-
-  console.log("[useFollow] Fetching following list from API...");
-  setLoading(true);
-  setError(null);
-
-  try {
-    const currentUserId = localStorage.getItem("sub");
-    let url = `${QUERY_HANDLER}?type=following&userId=${userId}&currentUserId=${currentUserId}&limit=10`;
-
-    // add pagination key if present
-    if (followingLastKey) {
-      url += `&lastKey=${encodeURIComponent(JSON.stringify(followingLastKey))}`;
+    // cache check (only if not paginating and not force reloading)
+    if (!append && cache.following.has(userId) && !force) {
+      console.log("[useFollow] Using cached following for:", userId);
+      setFollowingList(cache.following.get(userId)!);
+      followingFetched.current = true;
+      return;
     }
 
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (!response.ok) throw new Error("Failed to fetch following");
-    const data = await response.json();
-
-    const following = data.following || [];
-    const newList = append ? [...followingList, ...following] : following;
-
-    // update cache only when not appending (first page or force refresh)
-    if (!append) {
-      cache.following.set(userId, newList);
+    if (followingFetched.current && !append && !force) {
+      return;
     }
 
-    setFollowingList(newList);
-    setFollowingLastKey(data.lastKey || null);
+    console.log("[useFollow] Fetching following list from API...");
+    setLoading(true);
+    setError(null);
 
-    console.log("[useFollow] followingList:", newList);
+    try {
+      const currentUserId = localStorage.getItem("sub");
+      let url = `${QUERY_HANDLER}?type=following&userId=${userId}&currentUserId=${currentUserId}&limit=10`;
 
-    followingFetched.current = true;
-  } catch (err) {
-    setError(err instanceof Error ? err.message : "An error occurred");
-    console.error("Error fetching following:", err);
-  } finally {
-    setLoading(false);
-  }
-};
+      // add pagination key if present
+      if (followingLastKey) {
+        url += `&lastKey=${encodeURIComponent(JSON.stringify(followingLastKey))}`;
+      }
+
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) throw new Error("Failed to fetch following");
+      const data = await response.json();
+
+      const following = data.following || [];
+      const newList = append ? [...followingList, ...following] : following;
+
+      // update cache only when not appending (first page or force refresh)
+      if (!append) {
+        cache.following.set(userId, newList);
+      }
+
+      setFollowingList(newList);
+      setFollowingLastKey(data.lastKey || null);
+
+      console.log("[useFollow] followingList:", newList);
+
+      followingFetched.current = true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+      console.error("Error fetching following:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const doToggle = async (targetUserId: string, action: "follow" | "unfollow") => {
     setError(null);
@@ -247,17 +247,31 @@ const useFollow = (userId?: string) => {
       console.log("[useFollow] response for toggling", responseData);
       console.log(`[useFollow] Toggle follow success → ${action} user ${targetUserId}`);
 
-      // Invalidate cache and refresh stats - ADDED CACHE INVALIDATION
-      cache.stats.delete(userId!);
-      cache.followers.delete(userId!);
-      cache.following.delete(userId!);
+      if (responseData.success) {
+        // update state
+        setStats(prev => {
+          let followersCount = prev.followersCount;
+          if (action === "follow") followersCount++;
+          else if (action === "unfollow" && followersCount > 0) followersCount--;
 
-      statsFetched.current = false;
-      followersFetched.current = false;
-      followingFetched.current = false;
+          return {
+            ...prev,
+            followersCount,
+            isFollowing: action === "follow"
+          };
+        });
 
-      await fetchFollowStats(true);
-      return true;
+        // update cache directly
+        cache.stats.set(userId!, {
+          ...stats,
+          followersCount: action === "follow"
+            ? stats.followersCount + 1
+            : Math.max(0, stats.followersCount - 1),
+          isFollowing: action === "follow"
+        });
+
+        return true;
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "An error occurred";
       setError(errorMessage);

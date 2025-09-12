@@ -46,11 +46,11 @@ export const clearAuthData = () => {
   localStorage.removeItem("email");
   localStorage.removeItem("sub");
 
-  // clear cached session-level items too
   sessionStorage.removeItem("user_details");
   sessionStorage.removeItem("user_details_token");
   sessionStorage.removeItem("user_feed");
   sessionStorage.removeItem("user_feed_token");
-  sessionStorage.removeItem("crinz_messages_cache")
-  sessionStorage.removeItem("crinz_messages_cache_token")
+  sessionStorage.removeItem("crinz_feed_fetched_this_session");
+
+  localStorage.removeItem("crinz_messages_cache");
 };

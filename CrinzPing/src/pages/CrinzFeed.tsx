@@ -11,8 +11,11 @@ import { usePendingSync, usePendingSyncOnUnload } from "../hooks/usePendingSync"
 import { encodePostData } from "../utils/encodeDecode";
 import { FeedHighlightHandler } from "../components/FeedHighlightHandler";
 
+interface CrinzFeedProps {
+  searchTerm?: string;
+}
 
-const CrinzFeed: React.FC = () => {
+const CrinzFeed: React.FC<CrinzFeedProps> = ({ searchTerm = "" }) => {
   const { crinzPosts, fetchMessages, loading, error, hasMore, crinzNotFoundInResponse } = useCrinzMessages();
 
   const navigate = useNavigate();
@@ -28,6 +31,12 @@ const CrinzFeed: React.FC = () => {
       console.warn(`🚨 Crinz with ID ${crinzNotFoundInResponse} seems missing or deleted.`);
     }
   }, [crinzNotFoundInResponse]);
+
+  const didInitialFetch = useRef(false);
+  useEffect(() => {
+    if (didInitialFetch.current) return;
+    didInitialFetch.current = true;
+  }, []);
 
   const {
     likes,
@@ -73,11 +82,16 @@ const CrinzFeed: React.FC = () => {
     }
   }, [highlightId, crinzPosts, fetchMessages, error]);
 
-  // 🔹 Always fetch fresh data on mount
-  {/**  useEffect(() => {
-    fetchMessages(true);
-  }, []);
- */}
+  // Filter posts based on search term
+  const filteredPosts = searchTerm
+    ? crinzPosts.filter(post =>
+      post.message.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (post.tags && post.tags.some(tag =>
+        tag.toLowerCase().includes(searchTerm.toLowerCase().replace('#', ''))
+      )) ||
+      post.userName.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    : crinzPosts;
 
   const normalizeTimestamp = (ts: string) => {
     const match = ts.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3})/);
@@ -104,42 +118,35 @@ const CrinzFeed: React.FC = () => {
         ready={crinzPosts.length > 0}
       />
 
-      <button
-        onClick={() => fetchMessages(true)}
-        style={{
-          position: "fixed",
-          top: "10%",
-          left: "10%",
-          zIndex: 5,
-          background: "white",
-          border: "1px solid #ddd",
-          borderRadius: "50%",
-          padding: "8px",
-          cursor: "pointer",
-          boxShadow: "0 2px 6px rgba(0,0,0,0.2)"
-        }}
-        disabled={loading}
-      >
-        <span
-          style={{
-            display: "inline-block",
-            animation: loading ? "spin 1s linear infinite" : "none"
-          }}
-        >
-          🔄
-        </span>
-      </button>
+      {searchTerm && (
+        <div className="search-results-info">
+          <p>Searching for: "{searchTerm}"</p>
+          <p>{filteredPosts.length} result(s) found</p>
+        </div>
+      )}
 
       <style>
         {`
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-`}
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+          .search-results-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px;
+            text-align: center;
+            border: 1px solid #e9ecef;
+          }
+          .search-results-info p {
+            margin: 5px 0;
+            color: #6c757d;
+          }
+        `}
       </style>
 
-      {crinzPosts.map((post) => (
+      {filteredPosts.map((post) => (
         <div
           key={post.crinzId}
           id={`post-${post.crinzId}`}
@@ -206,7 +213,13 @@ const CrinzFeed: React.FC = () => {
         </div>
       ))}
 
-      {!loading && crinzPosts.length > 0 && (
+      {!loading && filteredPosts.length === 0 && searchTerm && (
+        <div className="no-results">
+          <p>No posts found for "{searchTerm}"</p>
+        </div>
+      )}
+
+      {!loading && filteredPosts.length > 0 && !searchTerm && (
         <>
           {hasMore ? (
             <div
@@ -244,5 +257,3 @@ const CrinzFeed: React.FC = () => {
 };
 
 export default CrinzFeed;
-
-

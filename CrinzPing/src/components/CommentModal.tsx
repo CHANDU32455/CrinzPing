@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, type FormEvent } from "react";
 import "../css/CommentModal.css";
+import { useNavigate } from "react-router-dom";
 
 interface Comment {
   commentId: string;
@@ -31,7 +32,7 @@ const CommentModal: React.FC<CommentModalProps> = ({
   const [newComment, setNewComment] = useState("");
   const [adding, setAdding] = useState(false);
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
-
+  const navigate = useNavigate();
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (adding) return;
@@ -109,7 +110,15 @@ const CommentModal: React.FC<CommentModalProps> = ({
               {comments.map((comment) => (
                 <div key={comment.commentId} className="comment-item">
                   <div className="comment-header">
-                    <span className="comment-id">{comment.commentId}</span>
+                    <span
+                      className="user-name"
+                      onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
+                      onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
+                      onClick={() => navigate(`/profile/${comment.userId}`)}
+                    >
+                      @{`${comment.userId.slice(0, 3)}...${comment.userId.slice(-3)}`}
+                    </span>
+
                     <span className="comment-timestamp">
                       {formatDate(comment.timestamp)}
                     </span>

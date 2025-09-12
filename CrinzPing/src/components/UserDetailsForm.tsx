@@ -5,7 +5,7 @@ import { processAvatarFile } from "../utils/imageProcessor";
 import Select from "react-select";
 import { useAuth } from "react-oidc-context";
 import "../css/UserDetailsForm.css";
-import { useUserDetails, type UserDetails } from "../hooks/UserInfo";
+import { useUserDetails, type UserDetails as UserDetailsType } from "../hooks/UserInfo";
 
 const UserDetailsForm = () => {
     const location = useLocation();
@@ -89,74 +89,81 @@ const UserDetailsForm = () => {
         setCategories(categories.filter((c) => c !== cat));
     };
 
-   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isFormValid || !hasChanges) return;
+    // In your handleSubmit function
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!isFormValid || !hasChanges) return;
 
-    setStatus("posting");
+        setStatus("posting");
 
-    if (!email || !userId || !token) {
-        setStatus("error");
-        console.error("Missing user details or token");
-        return;
-    }
+        if (!email || !userId || !token) {
+            setStatus("error");
+            console.error("Missing user details or token");
+            return;
+        }
 
-    const payload: UserDetails = {
-        userId,
-        email,
-        displayName,
-        Tagline: Tagline.trim(),
-        timeZone,
-        preferences: { categories },
-        profilePic,
-        categories,
-        profilePicPath: userDetails?.profilePicPath,
+        // Check if username changed
+        const usernameChanged = baselineDetails.displayName !== displayName;
+
+        const payload: UserDetailsType = {
+            userId,
+            email,
+            displayName,
+            Tagline: Tagline.trim(),
+            timeZone,
+            preferences: { categories },
+            profilePic,
+            categories,
+            profilePicPath: userDetails?.profilePicPath,
+            // Frontend-controlled username update flags
+            updateUsername: usernameChanged,
+            newDisplayName: usernameChanged ? displayName : undefined
+        };
+
+        try {
+            // First update the cache for immediate UI response
+            updateUserDetails?.(payload, false);
+
+            // Then make the actual API call
+            const apiUrl = import.meta.env.VITE_POST_USER_DETAILS_API_URL;
+            const response = await fetch(apiUrl, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                throw new Error(`API error: ${response.status}`);
+            }
+
+            setStatus("success");
+
+            // update baseline so "Save" button disables
+            setBaselineDetails({
+                displayName,
+                Tagline: Tagline.trim(),
+                categories: [...categories],
+                profilePic
+            });
+
+            // Wait for 3 seconds on success before navigating
+            setTimeout(() => {
+                navigate("/extras", { state: { userDetails: payload } });
+            }, 3000);
+
+        } catch (err) {
+            console.error("Submission failed:", err);
+            setStatus("error");
+            // Revert cache update if API call failed
+            if (userDetails) {
+                updateUserDetails?.(userDetails, false);
+            }
+        }
     };
 
-    try {
-        // First update the cache for immediate UI response
-        updateUserDetails?.(payload, false);
-        
-        // Then make the actual API call
-        const apiUrl = import.meta.env.VITE_POST_USER_DETAILS_API_URL;
-        const response = await fetch(apiUrl, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify(payload),
-        });
-
-        if (!response.ok) {
-            throw new Error(`API error: ${response.status}`);
-        }
-
-        setStatus("success");
-
-        // update baseline so "Save" button disables
-        setBaselineDetails({ 
-            displayName, 
-            Tagline: Tagline.trim(),
-            categories: [...categories], 
-            profilePic 
-        });
-
-        // Wait for 3 seconds on success before navigating
-        setTimeout(() => {
-            navigate("/extras", { state: { userDetails: payload } });
-        }, 3000);
-
-    } catch (err) {
-        console.error("Submission failed:", err);
-        setStatus("error");
-        // Revert cache update if API call failed
-        if (userDetails) {
-            updateUserDetails?.(userDetails, false);
-        }
-        // Stay on this page on error
-    }
-};
     const defaultCategories = [
         "General",
         "LoveFails",

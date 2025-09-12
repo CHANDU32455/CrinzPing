@@ -1,6 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { HeadProvider } from "react-head";
-import { useAuth } from "react-oidc-context";
 
 import Home from "./pages/home";
 import CrinzFeed from "./pages/CrinzFeed";
@@ -21,7 +20,6 @@ import OthersProfileView from "./profile/OthersProfileView";
 import RegisterCallback from "./components/RegisterCallback";
 import UserDetailsForm from "./components/UserDetailsForm";
 import ProtectedRoute from "./components/ProtectedRoute";
-import { FloatingActionButton } from "./components/FloatingActionButton";
 
 import Layout from "./hooks/Layout";
 import AuthManager from "./utils/refreshGen";
@@ -30,19 +28,11 @@ import ShowFollowers from "./following/ShowFollowers";
 import ShowFollowing from "./following/ShowFollowing";
 import "./App.css";
 
-
-// Create a wrapper component for conditional FloatingActionButton
-const ConditionalFAB = () => {
-  const auth = useAuth();
-  return auth.isAuthenticated ? <FloatingActionButton /> : null;
-};
-
 const App = () => {
   return (
     <HeadProvider>
       <BrowserRouter>
         <AuthManager />
-        <ConditionalFAB /> {/* Use the conditional wrapper */}
         <Routes>
           {/* All pages with navbar */}
           <Route element={<Layout />}>
@@ -58,8 +48,14 @@ const App = () => {
 
             {/* Protected routes */}
             <Route path="/feed" element={<ProtectedRoute><CrinzFeed /></ProtectedRoute>} />
+            {/**
+            <Route path="/feed" element={<ProtectedRoute><FeedContainer /></ProtectedRoute>} />
+            <Route path="/feed/:tab" element={<ProtectedRoute><FeedContainer /></ProtectedRoute>} />
+             */}
             <Route path="/extras" element={<ProtectedRoute><Extras /></ProtectedRoute>} />
             <Route path="/contributeCrinz" element={<ProtectedRoute><CrinzExplorer /></ProtectedRoute>} />
+            <Route path="/addPostCrinz" element={<ProtectedRoute><CrinzExplorer /></ProtectedRoute>} />
+            <Route path="/addVideoCrinz" element={<ProtectedRoute><CrinzExplorer /></ProtectedRoute>} />
             <Route path="/postUserDetails" element={<ProtectedRoute><UserDetailsForm /></ProtectedRoute>} />
             <Route path="/profile/:sub" element={<ProtectedRoute><OthersProfileView /></ProtectedRoute>} />
             <Route path="/profile/:userSub/more" element={<ProtectedRoute><ProfileMorePosts /></ProtectedRoute>} />

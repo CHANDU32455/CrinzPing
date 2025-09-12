@@ -12,8 +12,9 @@ export interface CrinzPost {
   isLiked?: boolean;
 }
 
-const CACHE_KEY = "crinz_messages_cache";
-const SESSION_FLAG_KEY = "crinz_feed_fetched_this_session";
+const CACHE_KEY = "crinz_messages_cache_v3";
+const SESSION_FLAG_KEY = "crinz_feed_fetched_this_session_v2";
+const CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes
 
 export const useCrinzMessages = () => {
   const [crinzPosts, setCrinzPosts] = useState<CrinzPost[]>([]);
@@ -42,8 +43,6 @@ export const useCrinzMessages = () => {
         if (!isInitial && lastKey) bodyPayload.lastKey = lastKey;
         if (postId) bodyPayload.postId = postId;
 
-        console.log("Fetching messages...");
-
         const res = await fetch(import.meta.env.VITE_GET_CRINZMESSAGES_API_URL, {
           method: "POST",
           headers: {
@@ -53,7 +52,14 @@ export const useCrinzMessages = () => {
           body: JSON.stringify(bodyPayload),
         });
 
-        if (!res.ok) throw new Error("Failed to fetch messages");
+        if (!res.ok) {
+          if (res.status === 401) {
+            localStorage.removeItem("id_token");
+            localStorage.removeItem("access_token");
+            throw new Error("Authentication failed. Please login again.");
+          }
+          throw new Error(`Failed to fetch messages: ${res.status}`);
+        }
 
         const data = await res.json();
 
@@ -65,10 +71,7 @@ export const useCrinzMessages = () => {
         if (postId) {
           const found = mappedItems.some((p: any) => p.crinzId === postId);
           if (!found) {
-            console.warn(`Post ${postId} not found in response.`);
             setCrinzNotFoundInResponse(postId);
-          } else {
-            console.log("Requested post fetched successfully.");
           }
         }
 
@@ -81,68 +84,81 @@ export const useCrinzMessages = () => {
         const validLastKey = data.lastKey && Object.keys(data.lastKey).length > 0 ? data.lastKey : null;
         setLastKey(validLastKey);
 
-        // 🔥 FIX: Always update cache for refresh operations, not just for non-postId fetches
-        const existingCache = localStorage.getItem(CACHE_KEY);
-        let cachedPosts: CrinzPost[] = [];
-        if (existingCache) {
-          const parsed = JSON.parse(existingCache);
-          cachedPosts = parsed.posts || [];
-        }
-
-        // For refresh (isInitial), replace cache completely
-        // For pagination, merge with existing cache
-        let mergedPosts: CrinzPost[];
-        if (isInitial) {
-          mergedPosts = uniquePosts; // Replace cache on refresh
-        } else {
-          const mergedPostsMap = new Map<string, CrinzPost>();
-          [...cachedPosts, ...uniquePosts].forEach((p) => mergedPostsMap.set(p.crinzId, p));
-          mergedPosts = Array.from(mergedPostsMap.values());
-        }
-
         localStorage.setItem(CACHE_KEY, JSON.stringify({ 
-          posts: mergedPosts, 
+          posts: uniquePosts, 
           lastKey: validLastKey,
-          timestamp: Date.now() // Add timestamp for cache freshness
+          timestamp: Date.now()
         }));
         
         sessionStorage.setItem(SESSION_FLAG_KEY, "true");
-        console.log("Cached posts updated.");
       } catch (err: any) {
-        console.error("Error fetching messages:", err.message || err);
+        console.error("Error fetching messages:", err);
         setError(err.message || "Error fetching messages");
       } finally {
         setLoading(false);
-        console.log("Fetch finished.");
       }
     },
     [lastKey, loading, crinzPosts, hasMore]
   );
 
-  // Remove the didInitialFetch ref and simplify the initial load logic
   useEffect(() => {
     const fetchedThisSession = sessionStorage.getItem(SESSION_FLAG_KEY);
-    const cache = localStorage.getItem(CACHE_KEY);
+    const cacheStr = localStorage.getItem(CACHE_KEY);
     
-    if (cache && fetchedThisSession) {
-      // Use cached data if we've fetched in this session
-      const { posts, lastKey } = JSON.parse(cache);
-      console.log(`Loaded ${posts?.length || 0} cached posts.`);
-      setCrinzPosts(posts || []);
-      setLastKey(lastKey || null);
-    } else {
-      // Fetch fresh data if no cache or first time in session
-      console.log("Initial feed fetch.");
-      fetchMessages(true);
+    if (cacheStr) {
+      try {
+        const cache = JSON.parse(cacheStr);
+        const isCacheValid = cache.timestamp && (Date.now() - cache.timestamp) < CACHE_EXPIRY;
+        
+        if (isCacheValid && fetchedThisSession) {
+          setCrinzPosts(cache.posts || []);
+          setLastKey(cache.lastKey || null);
+          return;
+        }
+      } catch (e) {
+        console.error("Failed to parse cache", e);
+        localStorage.removeItem(CACHE_KEY);
+      }
     }
+    
+    fetchMessages(true);
   }, []);
 
   const refresh = useCallback(() => {
-    console.log("Refreshing feed...");
-    // Clear session flag to force fresh fetch
+    localStorage.removeItem(CACHE_KEY);
     sessionStorage.removeItem(SESSION_FLAG_KEY);
     fetchMessages(true);
   }, [fetchMessages]);
 
-  return { crinzPosts, fetchMessages, refresh, loading, error, hasMore, crinzNotFoundInResponse };
+  const updateLocalPost = useCallback((postId: string, updates: Partial<CrinzPost>) => {
+    setCrinzPosts(prev => prev.map(post => 
+      post.crinzId === postId ? { ...post, ...updates } : post
+    ));
+  }, []);
+
+  const addLocalComment = useCallback((postId: string) => {
+    setCrinzPosts(prev => prev.map(post => 
+      post.crinzId === postId ? { ...post, commentCount: post.commentCount + 1 } : post
+    ));
+  }, []);
+
+  const removeLocalComment = useCallback((postId: string) => {
+    setCrinzPosts(prev => prev.map(post => 
+      post.crinzId === postId ? { ...post, commentCount: Math.max(0, post.commentCount - 1) } : post
+    ));
+  }, []);
+
+  return { 
+    crinzPosts, 
+    setCrinzPosts, 
+    fetchMessages, 
+    refresh, 
+    loading, 
+    error, 
+    hasMore, 
+    crinzNotFoundInResponse,
+    updateLocalPost,
+    addLocalComment,
+    removeLocalComment
+  };
 };

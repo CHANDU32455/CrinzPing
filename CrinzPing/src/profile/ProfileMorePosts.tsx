@@ -26,7 +26,7 @@ const ProfileMorePosts: React.FC = () => {
   const navigate = useNavigate();
   const highlightIdFromUrl = new URLSearchParams(location.search).get("highlight");
 
-  const { userDetails, crinzMessages, lastKey, loadingCrinz, loadMoreCrinz, fetchCrinzMessages, crinzError, userError, fetchUserDetails } = useUserDetails(userSub);
+  const { crinzMessages, lastKey, loadingCrinz, loadMoreCrinz, fetchCrinzMessages, crinzError, userError, fetchUserDetails } = useUserDetails(userSub);
 
   const {
     addPendingAction,
@@ -468,7 +468,7 @@ const ProfileMorePosts: React.FC = () => {
 
             <div className="post-header">
               <div className="post-user-info">
-                <span className="user-name">@{userDetails?.displayName || "user"}</span>
+                <span className="user-name">@{post.userName || "user"}</span>
               </div>
 
               {isOwnPost && (
