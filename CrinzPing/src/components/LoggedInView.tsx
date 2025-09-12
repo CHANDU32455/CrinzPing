@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import type { CrinzResponse } from "../hooks/useCrinzLogic";
+import { ContribCrinzFloating } from "./contribCrinzFloating";
 
 interface Props {
   crinzData: CrinzResponse | null;
@@ -130,6 +131,7 @@ function LoggedInView({
           }
         `}
       </style>
+      <ContribCrinzFloating />
     </div>
   );
 }

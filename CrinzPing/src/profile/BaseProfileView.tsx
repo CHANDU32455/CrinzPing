@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useAuth } from "react-oidc-context";
 import { useNavigate } from "react-router-dom";
 import { useUserDetails, type CrinzMessage, type UserDetails } from "../hooks/UserInfo";
+import { ContribCrinzFloating } from "../components/contribCrinzFloating";
 import { encodePostData } from "../utils/encodeDecode";
 import SignOutButton from "../components/SignOutButton";
 import Follow from "../following/Follow";
@@ -227,6 +228,8 @@ const BaseProfileView: React.FC<BaseProfileProps> = ({
             </div>
           )}
         </div>
+
+        <ContribCrinzFloating />
 
         {showSignout && (
           <div className="signout-container">

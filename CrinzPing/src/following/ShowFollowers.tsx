@@ -3,9 +3,9 @@ import useFollow from "./useFollow";
 import { useParams } from "react-router-dom";
 
 const ShowFollowers: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
-  const { userId } = useParams<{ userId: string }>(); // grab from URL
-  // Add setFollowersList to the destructuring
-  const { followersList, loading, error, fetchFollowers, toggleFollowDirect, setFollowersList, followersLastKey } = useFollow(userId); const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
+  const { userId } = useParams<{ userId: string }>();
+  const { followersList, loading, error, fetchFollowers, toggleFollowDirect, setFollowersList, followersLastKey } = useFollow(userId);
+  const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     console.log("[ShowFollowers] userId:", userId);
@@ -17,7 +17,6 @@ const ShowFollowers: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   const handleFollowToggle = async (targetUserId: string, isCurrentlyFollowing: boolean) => {
     setProcessingIds(prev => new Set(prev).add(targetUserId));
 
-    // OPTIMISTIC UI UPDATE: Update the user's follow status immediately
     setFollowersList(prevList =>
       prevList.map(user =>
         user.id === targetUserId
@@ -29,9 +28,8 @@ const ShowFollowers: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
     try {
       await toggleFollowDirect(targetUserId, isCurrentlyFollowing);
     } catch (err) {
-      // If API call fails, revert by refetching the original list
       console.error("Failed to toggle follow, reverting UI", err);
-      fetchFollowers(true); // force refetch
+      fetchFollowers(true);
     } finally {
       setProcessingIds(prev => {
         const newSet = new Set(prev);
@@ -41,7 +39,7 @@ const ShowFollowers: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
     }
   };
 
-  // Inline styles
+  // Fixed container styles
   const containerStyle: React.CSSProperties = {
     padding: '24px',
     maxWidth: '1200px',
@@ -71,22 +69,27 @@ const ShowFollowers: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
     marginBottom: '24px'
   };
 
-const gridStyle: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-  gap: '24px',
-  padding: '16px',
-  justifyItems: 'center', // This centers the items within their grid cells
-  justifyContent: 'center' // This centers the grid itself when there's extra space
-};
+  // Fixed grid style with consistent columns
+  const gridStyle: React.CSSProperties = {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+    gap: '24px',
+    padding: '0',
+    width: '100%'
+  };
 
+  // Fixed card style with consistent dimensions
   const cardStyle: React.CSSProperties = {
     background: 'linear-gradient(145deg, #1a1a1a, #2d2d2d)',
     borderRadius: '16px',
     padding: '20px',
     border: '1px solid rgba(255, 255, 255, 0.1)',
     transition: 'all 0.3s ease',
-    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+    height: 'fit-content',
+    minHeight: '220px',
+    display: 'flex',
+    flexDirection: 'column'
   };
 
   const headerContainerStyle: React.CSSProperties = {
@@ -101,27 +104,39 @@ const gridStyle: React.CSSProperties = {
     height: '60px',
     borderRadius: '50%',
     objectFit: 'cover',
-    border: '2px solid rgba(100, 181, 246, 0.3)'
+    border: '2px solid rgba(100, 181, 246, 0.3)',
+    flexShrink: 0
   };
 
   const usernameStyle: React.CSSProperties = {
     fontSize: '18px',
     fontWeight: '600',
     marginBottom: '4px',
-    color: '#ffffff'
+    color: '#ffffff',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap'
   };
 
   const nameStyle: React.CSSProperties = {
     fontSize: '14px',
     color: '#64b5f6',
-    marginBottom: '4px'
+    marginBottom: '4px',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap'
   };
 
   const bioStyle: React.CSSProperties = {
     fontSize: '14px',
     color: '#aaa',
     lineHeight: '1.4',
-    marginBottom: '16px'
+    marginBottom: '16px',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    display: '-webkit-box',
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: 'vertical'
   };
 
   const statsStyle: React.CSSProperties = {
@@ -143,7 +158,8 @@ const gridStyle: React.CSSProperties = {
     fontSize: '14px',
     fontWeight: '600',
     cursor: 'pointer',
-    transition: 'all 0.3s ease'
+    transition: 'all 0.3s ease',
+    marginTop: 'auto'
   };
 
   const followButtonStyle: React.CSSProperties = {
@@ -196,24 +212,6 @@ const gridStyle: React.CSSProperties = {
 
   return (
     <div style={containerStyle}>
-      {followersLastKey && (
-        <div style={{ textAlign: "center", marginTop: "20px" }}>
-          <button
-            onClick={() => fetchFollowers(true)}
-            style={{
-              padding: "10px 20px",
-              background: "#64b5f6",
-              border: "none",
-              borderRadius: "8px",
-              cursor: "pointer",
-              color: "#fff"
-            }}
-          >
-            Load More
-          </button>
-        </div>
-      )}
-
       {onBack && (
         <div style={{ marginBottom: '20px' }}>
           <button
@@ -232,6 +230,7 @@ const gridStyle: React.CSSProperties = {
           </button>
         </div>
       )}
+      
       <div style={headerStyle}>
         <h1 style={titleStyle}>Your Followers</h1>
         <p style={subtitleStyle}>{followersList.length} people following you</p>
@@ -263,7 +262,7 @@ const gridStyle: React.CSSProperties = {
                 alt={user.username}
                 style={avatarStyle}
               />
-              <div>
+              <div style={{ overflow: 'hidden' }}>
                 <h3 style={usernameStyle}>@{user.username}</h3>
                 <p style={nameStyle}>{user.name}</p>
               </div>
@@ -306,6 +305,26 @@ const gridStyle: React.CSSProperties = {
           </div>
         ))}
       </div>
+
+      {followersLastKey && (
+        <div style={{ textAlign: "center", marginTop: "40px" }}>
+          <button
+            onClick={() => fetchFollowers(true)}
+            style={{
+              padding: "12px 24px",
+              background: "#64b5f6",
+              border: "none",
+              borderRadius: "8px",
+              cursor: "pointer",
+              color: "#fff",
+              fontSize: "16px",
+              fontWeight: "600"
+            }}
+          >
+            Load More
+          </button>
+        </div>
+      )}
 
       <style>{`
         @keyframes spin {

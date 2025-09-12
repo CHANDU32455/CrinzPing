@@ -10,6 +10,7 @@ import { getAuthItem } from "../utils/useAuthStore";
 import { usePendingSync, usePendingSyncOnUnload } from "../hooks/usePendingSync";
 import { encodePostData } from "../utils/encodeDecode";
 import { FeedHighlightHandler } from "../components/FeedHighlightHandler";
+import { ContribCrinzFloating } from "../components/contribCrinzFloating";
 
 interface CrinzFeedProps {
   searchTerm?: string;
@@ -236,6 +237,9 @@ const CrinzFeed: React.FC<CrinzFeedProps> = ({ searchTerm = "" }) => {
           ) : (
             <p className="all-fetched-text">🎉 All Crinzes fetched!</p>
           )}
+
+          <ContribCrinzFloating />
+          
         </>
       )}
 
