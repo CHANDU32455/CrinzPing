@@ -1,9 +1,9 @@
-import React, { useState, type CSSProperties } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 interface FloatingActionButtonProps {
   icon?: React.ReactNode;
-  size?: number; 
+  size?: number;
   color?: string;
 }
 
@@ -16,12 +16,13 @@ interface ChipItem {
 
 export function FloatingActionButton({
   icon = "➕",
-  size = 56, 
+  size = 56,
   color = "#1a2531ff",
 }: FloatingActionButtonProps) {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
-  
+  const containerRef = useRef<HTMLDivElement>(null);
+
   const chipItems: ChipItem[] = [
     {
       id: "contribute",
@@ -43,84 +44,73 @@ export function FloatingActionButton({
     }
   ];
 
-  const containerStyle: CSSProperties = {
-    position: "fixed",
-    bottom: "11%",
-    right: "16px",
-    zIndex: 10,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "flex-end",
-    gap: "15px",
-  };
+  // Close menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
 
-  const buttonStyle: CSSProperties = {
-    background: color,
-    border: "none",
-    borderRadius: "50%",
-    width: `${size}px`,
-    height: `${size}px`,
-    fontSize: `${size / 2.3}px`,
-    color: "white",
-    cursor: "pointer",
-    boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
-    transition: "all 0.3s ease",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
-  const chipContainerStyle: CSSProperties = {
-    display: "flex",
-    flexDirection: "column",
-    gap: "15px",
-    alignItems: "flex-end",
-  };
-
-  const chipStyle = (index: number, isVisible: boolean): CSSProperties => ({
-    padding: "12px 20px",
-    background: color,
-    color: "white",
-    border: "none",
-    borderRadius: "30px",
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-    cursor: "pointer",
-    boxShadow: "0 4px 8px rgba(0,0,0,0.2)",
-    transition: "all 0.3s ease",
-    opacity: isVisible ? 1 : 0,
-    transform: isVisible ? "translateY(0)" : "translateY(20px)",
-    maxWidth: isVisible ? "300px" : "0",
-    overflow: "hidden",
-    whiteSpace: "nowrap",
-    transitionDelay: isVisible ? `${index * 0.1}s` : "0s",
-  });
-
-  const handleFabClick = () => {
+  const handleFabClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent event bubbling
     setIsOpen(!isOpen);
   };
 
-  const handleChipClick = (path: string) => {
+  const handleChipClick = (path: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent event bubbling
+    if (!isOpen) return;
     setIsOpen(false);
     navigate(path);
   };
 
   return (
-    <div style={containerStyle}>
-      <div style={chipContainerStyle}>
+    <div
+      ref={containerRef}
+      className="fixed right-4 z-40 flex flex-col items-end gap-4"
+      style={{
+        bottom: '60px',
+        pointerEvents: isOpen ? 'auto' : 'none',
+      }}
+    >
+      {/* Chip Items - Only interactive when open */}
+      <div
+        className={`flex flex-col gap-4 items-end transition-all duration-300 ${isOpen
+            ? 'opacity-100 pointer-events-auto'
+            : 'opacity-0 pointer-events-none'
+          }`}
+        style={{
+          zIndex: 41,
+        }}
+      >
         {chipItems.map((chip, index) => (
           <button
             key={chip.id}
-            style={chipStyle(index, isOpen)}
-            onClick={() => handleChipClick(chip.path)}
+            className={`
+              flex items-center gap-2 text-white border-none rounded-full cursor-pointer
+              transition-all duration-300 ease-in-out overflow-hidden whitespace-nowrap
+              px-5 py-3 shadow-md hover:bg-[#263340] hover:-translate-x-1
+              ${isOpen ? 'translate-y-0 max-w-[300px]' : 'translate-y-5 max-w-0'}
+            `}
+            style={{
+              backgroundColor: color,
+              transitionDelay: isOpen ? `${index * 0.1}s` : '0s',
+              zIndex: 42,
+            }}
+            onClick={(e) => handleChipClick(chip.path, e)}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = "#263340";
-              e.currentTarget.style.transform = "translateX(-5px)";
+              if (!isOpen) return;
+              e.currentTarget.style.backgroundColor = "#263340";
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = color;
-              e.currentTarget.style.transform = isOpen ? "translateX(0)" : "translateY(20px)";
+              if (!isOpen) return;
+              e.currentTarget.style.backgroundColor = color;
             }}
           >
             <span>{chip.icon}</span>
@@ -128,20 +118,32 @@ export function FloatingActionButton({
           </button>
         ))}
       </div>
-      
+
+      {/* Main FAB Button - Always interactive but small click area */}
       <button
         onClick={handleFabClick}
+        className={`
+          flex items-center justify-center text-white border-none rounded-full cursor-pointer
+          shadow-lg transition-all duration-300 ease-in-out hover:scale-110 hover:shadow-xl
+          ${isOpen ? 'rotate-45' : ''}
+          fab-main-button
+        `}
         style={{
-          ...buttonStyle,
-          transform: isOpen ? "rotate(45deg)" : "none"
+          backgroundColor: color,
+          width: `${size}px`,
+          height: `${size}px`,
+          fontSize: `${size / 2.3}px`,
+          // Only the button itself is interactive when closed
+          pointerEvents: 'auto',
+          zIndex: 43,
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.transform = isOpen ? "rotate(45deg) scale(1.1)" : "scale(1.1)";
-          e.currentTarget.style.boxShadow = "0 6px 16px rgba(0,0,0,0.35)";
+          e.currentTarget.style.transform = isOpen ? 'rotate(45deg) scale(1.1)' : 'scale(1.1)';
+          e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.35)';
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.transform = isOpen ? "rotate(45deg)" : "scale(1)";
-          e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.25)";
+          e.currentTarget.style.transform = isOpen ? 'rotate(45deg)' : 'scale(1)';
+          e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.25)';
         }}
       >
         {icon}

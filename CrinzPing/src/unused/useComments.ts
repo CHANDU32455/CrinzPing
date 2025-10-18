@@ -39,7 +39,7 @@ export function useComments(crinzId: string | null, accessToken: string | null) 
         const bodyPayload: any = { crinzId, limit: 15 };
         if (!isInitial && lastKey) bodyPayload.lastKey = lastKey;
 
-        const res = await fetch(import.meta.env.VITE_GET_COMMENTS_API_URL, {
+        const res = await fetch(`${import.meta.env.VITE_BASE_API_URL}/getPostComments`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

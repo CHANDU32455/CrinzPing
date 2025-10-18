@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useAuth } from 'react-oidc-context';
 
 interface FollowStats {
   followersCount: number;
@@ -24,6 +25,8 @@ const cache = {
 };
 
 const useFollow = (userId?: string) => {
+  const auth = useAuth();
+  const accessToken = auth.user?.access_token;
   const [stats, setStats] = useState<FollowStats>({
     followersCount: 0,
     followingCount: 0,
@@ -36,8 +39,8 @@ const useFollow = (userId?: string) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const QUERY_HANDLER = import.meta.env.VITE_FOLLOW_QUERY_HANDLER;
-  const FOLLOW_UNFOLLOW_POINT = import.meta.env.VITE_FOLLOW_UNFOLLOW_POINT;
+const QUERY_HANDLER = `${import.meta.env.VITE_BASE_API_URL}/follow_query_handler`;
+const FOLLOW_UNFOLLOW_POINT = `${import.meta.env.VITE_BASE_API_URL}/follow_handler`;
 
   // cache refs
   const statsFetched = useRef(false);
@@ -63,14 +66,14 @@ const useFollow = (userId?: string) => {
     setLoading(true);
     setError(null);
     try {
-      const currentUserId = localStorage.getItem('sub');
-      const url = `${QUERY_HANDLER}?type=stats&userId=${userId}&currentUserId=${currentUserId}`;
+      const url = `${QUERY_HANDLER}?type=stats&userId=${userId}&currentUserId=${auth.user?.profile.sub}`;
       console.log(`[useFollow] GET request for stats`);
 
       const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
         }
       });
 
@@ -121,6 +124,7 @@ const useFollow = (userId?: string) => {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
         },
       });
 
@@ -180,6 +184,7 @@ const useFollow = (userId?: string) => {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
         },
       });
 
@@ -221,7 +226,9 @@ const useFollow = (userId?: string) => {
 
       const response = await fetch(FOLLOW_UNFOLLOW_POINT, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+         },
         body: JSON.stringify({
           followerId: currentUserId,
           targetId: targetUserId,

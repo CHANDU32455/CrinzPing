@@ -44,7 +44,7 @@ export const useCrinzMessages = () => {
 
         console.log("Fetching messages...");
 
-        const res = await fetch(import.meta.env.VITE_GET_CRINZMESSAGES_API_URL, {
+        const res = await fetch(`${import.meta.env.VITE_BASE_API_URL}/getCrinzMessages`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -100,12 +100,12 @@ export const useCrinzMessages = () => {
           mergedPosts = Array.from(mergedPostsMap.values());
         }
 
-        localStorage.setItem(CACHE_KEY, JSON.stringify({ 
-          posts: mergedPosts, 
+        localStorage.setItem(CACHE_KEY, JSON.stringify({
+          posts: mergedPosts,
           lastKey: validLastKey,
           timestamp: Date.now() // Add timestamp for cache freshness
         }));
-        
+
         sessionStorage.setItem(SESSION_FLAG_KEY, "true");
         console.log("Cached posts updated.");
       } catch (err: any) {
@@ -123,7 +123,7 @@ export const useCrinzMessages = () => {
   useEffect(() => {
     const fetchedThisSession = sessionStorage.getItem(SESSION_FLAG_KEY);
     const cache = localStorage.getItem(CACHE_KEY);
-    
+
     if (cache && fetchedThisSession) {
       // Use cached data if we've fetched in this session
       const { posts, lastKey } = JSON.parse(cache);

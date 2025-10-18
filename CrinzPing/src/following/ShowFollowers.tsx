@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import useFollow from "./useFollow";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
-const ShowFollowers: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
+const ShowFollowers: React.FC<{ onBack?: () => void }> = ({ }) => {
+  const navigate = useNavigate();
   const { userId } = useParams<{ userId: string }>();
   const { followersList, loading, error, fetchFollowers, toggleFollowDirect, setFollowersList, followersLastKey } = useFollow(userId);
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
@@ -112,7 +113,8 @@ const ShowFollowers: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
     fontSize: '18px',
     fontWeight: '600',
     marginBottom: '4px',
-    color: '#ffffff',
+    color: '#6963d6ff',
+    textDecoration: "underline",
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap'
@@ -212,24 +214,7 @@ const ShowFollowers: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
 
   return (
     <div style={containerStyle}>
-      {onBack && (
-        <div style={{ marginBottom: '20px' }}>
-          <button
-            onClick={onBack}
-            style={{
-              padding: '10px 16px',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
-              background: 'rgba(255, 255, 255, 0.1)',
-              color: '#fff',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              marginBottom: '20px'
-            }}
-          >
-            ← Back to Profile
-          </button>
-        </div>
-      )}
+      
       
       <div style={headerStyle}>
         <h1 style={titleStyle}>Your Followers</h1>
@@ -262,8 +247,10 @@ const ShowFollowers: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
                 alt={user.username}
                 style={avatarStyle}
               />
-              <div style={{ overflow: 'hidden' }}>
-                <h3 style={usernameStyle}>@{user.username}</h3>
+              <div style={{ overflow: 'hidden'}}>
+                <h3 onClick={() => navigate(`/profile/${user.id}`)}
+                style={usernameStyle}>@{user.username}</h3>
+                
                 <p style={nameStyle}>{user.name}</p>
               </div>
             </div>

@@ -108,7 +108,8 @@ const ShowFollowing: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
     fontSize: '18px',
     fontWeight: '600',
     marginBottom: '4px',
-    color: '#ffffff',
+    color: '#73a3e2ff',
+    textDecoration: "underline",
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap'
@@ -220,7 +221,7 @@ const ShowFollowing: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
           </button>
         </div>
       )}
-      
+
       <div style={headerStyle}>
         <h1 style={titleStyle}>People You Follow</h1>
         <p style={subtitleStyle}>{followingList.length} accounts you're following</p>
@@ -254,7 +255,8 @@ const ShowFollowing: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
                 style={avatarStyle}
               />
               <div style={{ overflow: 'hidden' }}>
-                <h3 style={usernameStyle}>@{user.username}</h3>
+                <h3 onClick={() => navigate(`/profile/${user.id}`)}
+                  style={usernameStyle}>@{user.username}</h3>
                 <p style={nameStyle}>{user.name}</p>
               </div>
             </div>

@@ -42,7 +42,6 @@ const SharedCrinzFeedPost: React.FC = () => {
       <div className="crinz-post shared-post">
         <div className="post-header">
           <span className="user-name">@{decoded.userName}</span>
-          <span className="post-category">#{decoded.category}</span>
         </div>
         <div className="post-message-container">
           <p className="post-message">{decoded.message}</p>

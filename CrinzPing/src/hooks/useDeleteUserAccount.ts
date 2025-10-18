@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
-const DELETE_ACCOUNT_API = import.meta.env.VITE_DELETE_ACCOUNT_API_URL;
+const DELETE_ACCOUNT_API = `${import.meta.env.VITE_BASE_API_URL}/deleteUserAccount`;
 
 function clearAllCookies() {
   document.cookie.split(";").forEach((c) => {

@@ -1,8 +1,11 @@
 import axios from "axios";
 import { useState, useEffect, useCallback } from "react";
 
-const USER_API_URL = import.meta.env.VITE_GET_USER_DETAILS_API_URL;
-const CRINZ_API_URL = import.meta.env.VITE_GET_USERSPECIFICPOSTS_API_URL;
+const BASE_API_URL = import.meta.env.VITE_BASE_API_URL;
+``
+// construct specific endpoints
+const USER_API_URL = `${BASE_API_URL}/getUserDetails`;
+const CRINZ_API_URL = `${BASE_API_URL}/fetchUserPosts`;
 
 export interface CrinzMessage {
   crinzId: string;

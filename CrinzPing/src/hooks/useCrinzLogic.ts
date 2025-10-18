@@ -30,7 +30,7 @@ export function useCrinzLogic() {
       const userDetails = JSON.parse(localStorage.getItem("user_details") || "{}");
       const categories = userDetails?.categories || [];
 
-      const res = await fetch(import.meta.env.VITE_CRINZ_API_URL, {
+      const res = await fetch(`${import.meta.env.VITE_BASE_API_URL}/getCrinz`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -47,7 +47,7 @@ export function useCrinzLogic() {
       setShowTile(true);
 
       localStorage.setItem("crinz_cache", JSON.stringify(data));
-      
+
       return data;
     } catch (err) {
       console.error("Fetch error:", err);

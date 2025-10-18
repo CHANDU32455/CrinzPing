@@ -1,0 +1,365 @@
+/* ReelsShareModal.css - Dedicated for Reels Share Modal */
+.reels-share-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(10, 10, 10, 0.95);
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  z-index: 3000;
+  padding: 0;
+  animation: reelsModalFadeIn 0.3s ease-out;
+  backdrop-filter: blur(8px);
+}
+
+.reels-share-modal-overlay.closing {
+  animation: reelsModalFadeOut 0.3s ease-out;
+}
+
+.reels-share-modal {
+  background: linear-gradient(145deg, #1a1f24, #2a2f35);
+  border-radius: 24px 24px 0 0;
+  width: 100%;
+  max-width: 100%;
+  height: 60vh;
+  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.5);
+  border: 1px solid #3a4046;
+  border-bottom: none;
+  animation: reelsModalSlideUp 0.3s ease-out;
+}
+
+.reels-share-modal.closing {
+  animation: reelsModalSlideDown 0.3s ease-out;
+}
+
+.reels-share-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px 12px 24px;
+  border-bottom: 1px solid #3a4046;
+  background: #1a1f24;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.reels-share-modal-drag-handle {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 4px;
+  background: #4a4f55;
+  border-radius: 2px;
+}
+
+.reels-share-modal-header h3 {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.5px;
+  flex: 1;
+  text-align: center;
+}
+
+.reels-share-close-button {
+  background: #2a2f35;
+  border: none;
+  font-size: 1.8rem;
+  color: #a0a0a0;
+  cursor: pointer;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.reels-share-close-button:hover {
+  color: #ff6b6b;
+  background: #3a3f45;
+  transform: translateY(-50%) scale(1.05);
+}
+
+.reels-share-post-preview {
+  padding: 16px 20px;
+  border-bottom: 1px solid #3a4046;
+  background: #21262b;
+  margin: 8px 12px;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.reels-share-post-author {
+  font-weight: 700;
+  font-size: 1rem;
+  margin-bottom: 6px;
+  color: #00d9ff;
+  text-shadow: 0 0 8px rgba(0, 217, 255, 0.4);
+}
+
+.reels-share-post-content {
+  color: #d0d0d0;
+  line-height: 1.5;
+  font-size: 0.9rem;
+  margin-bottom: 6px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-clamp: 2;
+  max-height: 3em;
+}
+
+.reels-share-timestamp {
+  font-size: 0.75rem;
+  color: #a0a0a0;
+  margin-bottom: 6px;
+}
+
+.reels-share-stats {
+  display: flex;
+  gap: 12px;
+  font-size: 0.8rem;
+  color: #909090;
+}
+
+.reels-share-divider {
+  border: none;
+  height: 1px;
+  background: #3a4046;
+  margin: 0 20px;
+  flex-shrink: 0;
+}
+
+.reels-share-apps-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+  align-content: flex-start;
+}
+
+.reels-share-app-button {
+  background: linear-gradient(145deg, #2a2f35, #3a3f45);
+  border: none;
+  border-radius: 16px;
+  padding: 16px 20px;
+  color: #ffffff;
+  font-size: 16px; /* Prevent zoom on iOS */
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60px;
+  word-break: break-word;
+  text-align: center;
+}
+
+.reels-share-app-button:hover:not(:disabled) {
+  background: linear-gradient(145deg, #3a3f45, #4a4f55);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+  color: #00d9ff;
+}
+
+.reels-share-app-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Animations */
+@keyframes reelsModalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes reelsModalFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes reelsModalSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes reelsModalSlideDown {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+}
+
+/* Desktop Styles */
+@media (min-width: 769px) {
+  .reels-share-modal-overlay {
+    align-items: center;
+    padding: 16px;
+  }
+
+  .reels-share-modal {
+    border-radius: 24px;
+    max-width: 440px;
+    max-height: 50vh;
+    height: auto;
+    animation: reelsModalSlideIn 0.3s ease-out;
+  }
+
+  .reels-share-modal.closing {
+    animation: reelsModalSlideOut 0.3s ease-out;
+  }
+
+  .reels-share-modal-drag-handle {
+    display: none;
+  }
+
+  .reels-share-modal-header {
+    padding: 20px 24px;
+  }
+
+  .reels-share-close-button {
+    position: static;
+    transform: none;
+  }
+
+  .reels-share-close-button:hover {
+    transform: scale(1.05);
+  }
+
+  .reels-share-post-preview {
+    padding: 20px 24px;
+    margin: 12px 16px;
+  }
+
+  .reels-share-apps-grid {
+    grid-template-columns: repeat(2, 1fr);
+    padding: 24px;
+  }
+
+  @keyframes reelsModalSlideIn {
+    from {
+      opacity: 0;
+      transform: scale(0.9) translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  @keyframes reelsModalSlideOut {
+    from {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: scale(0.9) translateY(20px);
+    }
+  }
+}
+
+/* Small Mobile Devices */
+@media (max-width: 480px) {
+  .reels-share-modal {
+    height: 55vh;
+    max-height: 55vh;
+  }
+
+  .reels-share-modal-header {
+    padding: 16px 20px 10px 20px;
+  }
+
+  .reels-share-modal-header h3 {
+    font-size: 1.2rem;
+  }
+
+  .reels-share-apps-grid {
+    grid-template-columns: 1fr;
+    padding: 16px;
+    gap: 10px;
+  }
+
+  .reels-share-app-button {
+    padding: 14px 18px;
+    min-height: 55px;
+    font-size: 15px;
+  }
+}
+
+/* Extra Small Devices */
+@media (max-width: 360px) {
+  .reels-share-modal {
+    height: 50vh;
+    max-height: 50vh;
+  }
+
+  .reels-share-modal-header {
+    padding: 14px 16px 8px 16px;
+  }
+
+  .reels-share-modal-header h3 {
+    font-size: 1.1rem;
+  }
+
+  .reels-share-post-preview {
+    padding: 12px 16px;
+    margin: 6px 8px;
+  }
+
+  .reels-share-apps-grid {
+    padding: 12px;
+    gap: 8px;
+  }
+
+  .reels-share-app-button {
+    padding: 12px 16px;
+    min-height: 50px;
+    font-size: 14px;
+  }
+}
+
+/* Landscape Orientation */
+@media (max-height: 500px) and (orientation: landscape) {
+  .reels-share-modal {
+    height: 90vh;
+    max-height: 90vh;
+  }
+  
+  .reels-share-apps-grid {
+    grid-template-columns: repeat(2, 1fr);
+    max-height: 60vh;
+  }
+}

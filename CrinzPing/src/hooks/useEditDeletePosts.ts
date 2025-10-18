@@ -2,8 +2,8 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useAuth } from "react-oidc-context";
 
-const PROFILE_BATCH_API_URL = import.meta.env.VITE_BATCH_PROFILE_ACTIONS_API_URL;
-const POST_BATCH_API_URL = import.meta.env.VITE_BATCH_PROCESS_API_URL;
+const PROFILE_BATCH_API_URL = `${import.meta.env.VITE_BASE_API_URL}/handleEditDeleteUserPosts`;
+const POST_BATCH_API_URL = `${import.meta.env.VITE_BASE_API_URL}/batchProcesser`;
 const STORAGE_KEY = "profile:pendingActions";
 
 interface PendingAction {

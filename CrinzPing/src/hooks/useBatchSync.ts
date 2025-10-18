@@ -18,7 +18,7 @@ export default async function syncBatchActions(
     const decoded = jwtDecode<{ "cognito:username"?: string; sub: string }>(token);
     const userId = decoded["cognito:username"] ?? decoded.sub;
 
-    const res = await fetch(import.meta.env.VITE_BATCH_PROCESS_API_URL, {
+    const res = await fetch(`${import.meta.env.VITE_BASE_API_URL}/batchProcesser`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

@@ -1,0 +1,239 @@
+.share-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(10, 10, 10, 0.9);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+  padding: 12px;
+  animation: fadeIn 0.3s ease-out;
+  backdrop-filter: blur(6px);
+}
+
+.share-modal-overlay.closing {
+  animation: fadeOut 0.3s ease-out;
+}
+
+.share-modal {
+  background: linear-gradient(145deg, #1c2526, #2a2f31);
+  border-radius: 20px;
+  width: 100%;
+  max-width: 450px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 8px 8px 16px rgba(0, 0, 0, 0.3), -8px -8px 16px rgba(60, 60, 60, 0.1);
+  border: 1px solid #3a3a3a;
+  animation: popIn 0.3s ease-out;
+}
+
+.share-modal.closing {
+  animation: popOut 0.3s ease-out;
+}
+
+.share-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  border-bottom: 1px solid #3f4a4b;
+  background: #1c2526;
+}
+
+.share-modal-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #e6e6e6;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.share-close-button {
+  background: #2a2f31;
+  border: none;
+  font-size: 1.6rem;
+  color: #a0a0a0;
+  cursor: pointer;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  box-shadow: inset 4px 4px 8px rgba(0, 0, 0, 0.2), inset -4px -4px 8px rgba(60, 60, 60, 0.2);
+  transition: all 0.3s ease;
+}
+
+.share-close-button:hover {
+  color: #ff6b6b;
+  transform: scale(1.1);
+  box-shadow: 4px 4px 8px rgba(0, 0, 0, 0.3), -4px -4px 8px rgba(60, 60, 60, 0.1);
+}
+
+.share-post-preview {
+  padding: 14px 18px;
+  border-bottom: 1px solid #3f4a4b;
+  background: #23292a;
+  margin: 8px 12px;
+  border-radius: 12px;
+  box-shadow: inset 2px 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.share-post-author {
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin-bottom: 8px;
+  color: #00d4ff;
+  text-shadow: 0 0 4px rgba(0, 212, 255, 0.3);
+}
+
+.share-post-content {
+  color: #c0c0c0;
+  line-height: 1.6;
+  font-size: 0.95rem;
+  margin-bottom: 8px;
+}
+
+.share-timestamp {
+  font-size: 0.8rem;
+  color: #a0a0a0;
+  margin-bottom: 8px;
+}
+
+.share-stats {
+  display: flex;
+  gap: 12px;
+  font-size: 0.85rem;
+  color: #909090;
+}
+
+.share-divider {
+  border: none;
+  height: 1px;
+  background: #3f4a4b;
+  margin: 0 18px;
+}
+
+.share-apps-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  padding: 18px;
+}
+
+.share-app-button {
+  background: linear-gradient(145deg, #2a2f31, #3a3f41);
+  border: none;
+  border-radius: 12px;
+  padding: 12px 16px;
+  color: #e6e6e6;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 4px 4px 8px rgba(0, 0, 0, 0.2), -4px -4px 8px rgba(60, 60, 60, 0.1);
+}
+
+.share-app-button:hover:not(:disabled) {
+  background: linear-gradient(145deg, #3a3f41, #4a4f51);
+  transform: translateY(-2px);
+  box-shadow: 6px 6px 12px rgba(0, 0, 0, 0.3), -6px -6px 12px rgba(60, 60, 60, 0.1);
+}
+
+.share-app-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes popOut {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 600px) {
+  .share-modal-overlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .share-modal {
+    max-width: 100%;
+    max-height: 100vh;
+    border-radius: 20px 20px 0 0;
+    animation: slideUpMobile 0.3s ease-out;
+  }
+
+  .share-modal.closing {
+    animation: slideDownMobile 0.3s ease-out;
+  }
+
+  @keyframes slideUpMobile {
+    from {
+      opacity: 0;
+      transform: translateY(100%);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slideDownMobile {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(100%);
+    }
+  }
+
+  .share-apps-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .share-modal-header {
+    padding: 12px 16px;
+  }
+
+  .share-post-preview {
+    padding: 12px 16px;
+    margin: 6px 10px;
+  }
+}

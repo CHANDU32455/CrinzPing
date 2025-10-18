@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
 import type { CrinzResponse } from "../hooks/useCrinzLogic";
-import { ContribCrinzFloating } from "./contribCrinzFloating";
 
 interface Props {
   crinzData: CrinzResponse | null;
@@ -102,8 +101,8 @@ function LoggedInView({
         {`
           .refresh-button {
             position: absolute;
-            top: -18px;
-            right: -22px;
+            top: -5px;
+            right: -7px;
             background: rgba(0,0,0,0.5);
             border: 1px solid #00ffcc;
             border-radius: 30%;
@@ -131,7 +130,6 @@ function LoggedInView({
           }
         `}
       </style>
-      <ContribCrinzFloating />
     </div>
   );
 }

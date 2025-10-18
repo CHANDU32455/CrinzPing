@@ -36,6 +36,7 @@ const handleSignOut = () => {
 };
 
   return (
+    /** created that signout css at app.css level */
     <button className={className || "btn-signout"} onClick={handleSignOut}>
       {children || "Sign Out"}
     </button>

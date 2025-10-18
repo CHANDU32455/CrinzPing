@@ -257,6 +257,7 @@
 .user-details-form__avatar-input {
   margin-top: 0.5rem;
   color: #32cd32;
+  width: 100%;
   /* limegreen */
 }
 

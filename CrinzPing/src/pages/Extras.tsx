@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "react-oidc-context";
 import ProfilePage from "../profile/ProfilePage";
 import SignOutButton from "../components/SignOutButton";
-import { useDeleteUserAccount, } from "../hooks/useDeleteUserAccount";
+import { useDeleteUserAccount } from "../hooks/useDeleteUserAccount";
 import "../css/Extras.css";
 
 const Extras: React.FC = () => {
@@ -15,7 +15,6 @@ const Extras: React.FC = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const { deleteUserAccount, deleteError } = useDeleteUserAccount();
   const [deleting, setDeleting] = useState(false);
-
 
   // Get active tab from query params or default to "profile"
   const tabParam = searchParams.get("tab");
@@ -43,6 +42,21 @@ const Extras: React.FC = () => {
     setIsMobileMenuOpen(false);
   }, [activeTab]);
 
+  // Add a useEffect to lock body scroll when sidebar is open
+useEffect(() => {
+  if (isMobileMenuOpen) {
+    document.body.style.overflow = "hidden";
+  } else {
+    document.body.style.overflow = "";
+  }
+
+  // cleanup in case component unmounts while menu is open
+  return () => {
+    document.body.style.overflow = "";
+  };
+}, [isMobileMenuOpen]);
+
+
   // Auto-hide export chip after 3 seconds
   useEffect(() => {
     if (showExportChip) {
@@ -67,7 +81,7 @@ const Extras: React.FC = () => {
 
     try {
       console.log("✅ account deletion confirmed");
-      setDeleting(true); // start deleting
+      setDeleting(true);
 
       const result = await deleteUserAccount(
         auth?.user?.profile?.sub,
@@ -80,7 +94,7 @@ const Extras: React.FC = () => {
         console.log("🗑️ deletion success!");
       }
     } finally {
-      setDeleting(false); // reset states
+      setDeleting(false);
       setDeleteConfirm(false);
       setShowDeleteModal(false);
     }
@@ -105,91 +119,25 @@ const Extras: React.FC = () => {
   const DeleteConfirmationModal = () => {
     if (!showDeleteModal) return null;
 
-    const modalStyle: React.CSSProperties = {
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.7)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-    };
-
-    const modalContentStyle: React.CSSProperties = {
-      backgroundColor: '#2a2a3d',
-      padding: '25px',
-      borderRadius: '12px',
-      maxWidth: '400px',
-      width: '90%',
-      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4)',
-    };
-
-    const titleStyle: React.CSSProperties = {
-      color: '#ff6b6b',
-      marginBottom: '15px',
-      fontSize: '20px',
-      fontWeight: '600',
-    };
-
-    const messageStyle: React.CSSProperties = {
-      color: '#f5f5f5',
-      marginBottom: '20px',
-      lineHeight: '1.5',
-    };
-
-    const buttonContainerStyle: React.CSSProperties = {
-      display: 'flex',
-      gap: '15px',
-      justifyContent: 'flex-end',
-    };
-
-    const buttonStyle: React.CSSProperties = {
-      padding: '10px 20px',
-      border: 'none',
-      borderRadius: '6px',
-      cursor: 'pointer',
-      fontWeight: '500',
-      transition: 'background-color 0.2s ease',
-    };
-
-    const cancelButtonStyle: React.CSSProperties = {
-      ...buttonStyle,
-      backgroundColor: '#3a3a52',
-      color: '#f5f5f5',
-    };
-
-    const confirmButtonStyle: React.CSSProperties = {
-      ...buttonStyle,
-      backgroundColor: '#ff4757',
-      color: 'white',
-    };
-
     return (
-      <div style={modalStyle} onClick={handleCancelDelete}>
-        <div style={modalContentStyle} onClick={(e) => e.stopPropagation()}>
-          <h3 style={titleStyle}>⚠️ Confirm Account Deletion</h3>
-          <p style={messageStyle}>
+      <div className="extras-modal-overlay" onClick={handleCancelDelete}>
+        <div className="extras-modal-content" onClick={(e) => e.stopPropagation()}>
+          <h3 className="extras-modal-title">⚠️ Confirm Account Deletion</h3>
+          <p className="extras-modal-message">
             Are you sure you want to delete your account? This action cannot be undone.
             All your data, including your profile, crinz messages, and preferences will be
             permanently deleted.
           </p>
-          <div style={buttonContainerStyle}>
+          <div className="extras-modal-buttons">
             <button
-              style={cancelButtonStyle}
+              className="extras-modal-cancel"
               onClick={handleCancelDelete}
-              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#4a4a62'}
-              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#3a3a52'}
             >
               Cancel
             </button>
             <button
-              style={confirmButtonStyle}
+              className="extras-modal-confirm"
               onClick={handleDeleteAccountClick}
-              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#ff5e6b'}
-              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#ff4757'}
               disabled={deleting}
             >
               {deleting ? "⏳ Deleting..." : "Delete Account"}
@@ -204,21 +152,8 @@ const Extras: React.FC = () => {
   const ExportChip = () => {
     if (!showExportChip) return null;
 
-    const chipStyle: React.CSSProperties = {
-      position: 'fixed',
-      bottom: '20px',
-      right: '20px',
-      backgroundColor: '#3a86ff',
-      color: 'white',
-      padding: '10px 16px',
-      borderRadius: '20px',
-      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-      zIndex: 100,
-      animation: 'fadeInOut 3s ease-in-out',
-    };
-
     return (
-      <div style={chipStyle}>
+      <div className="extras-export-chip">
         📥 Data export feature coming soon!
       </div>
     );
@@ -284,8 +219,8 @@ const Extras: React.FC = () => {
         <div style={{ display: activeTab === "profile" ? "block" : "none" }}>
           <ProfilePage />
         </div>
+        
         <div style={{ display: activeTab === "settings" ? "block" : "none" }}>
-          {/* settings content */}
           <div className="extras-settings-content">
             <div className="extras-settings-section">
               <h3>Data Management</h3>
@@ -295,7 +230,7 @@ const Extras: React.FC = () => {
               <button
                 className={`extras-settings-btn ${deleteConfirm ? "extras-delete-confirm" : "extras-delete"}`}
                 onClick={handleDeleteAccountClick}
-                disabled={deleting} // disable while deleting
+                disabled={deleting}
               >
                 {deleting
                   ? "⏳ Deleting..."
@@ -312,8 +247,8 @@ const Extras: React.FC = () => {
             </div>
           </div>
         </div>
+        
         <div style={{ display: activeTab === "about" ? "block" : "none" }}>
-          {/* about content */}
           <div className="extras-about-content">
             <div className="extras-about-section">
               <h3>About CrinzPing</h3>
@@ -343,7 +278,6 @@ const Extras: React.FC = () => {
           </div>
         </div>
       </div>
-
 
       {/* Export Chip */}
       <ExportChip />
