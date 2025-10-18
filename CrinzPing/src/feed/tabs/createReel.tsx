@@ -5,7 +5,7 @@ import { useAuth } from "react-oidc-context";
 
 // Define types for our states
 // Update your UploadState type to include the new states
-type UploadState = 'idle' | 'getting_url' | 'getting_video_url' | 'uploading'| 'uploading_video' | 'uploading_thumbnail' | 'saving_metadata' | 'completed' | 'error';
+type UploadState = 'idle' | 'getting_url' | 'getting_video_url' | 'uploading' | 'uploading_video' | 'uploading_thumbnail' | 'saving_metadata' | 'completed' | 'error';
 type ProcessingState = 'idle' | 'processing' | 'completed' | 'error';
 type ThumbnailState = 'idle' | 'generating' | 'ready' | 'error';
 
@@ -642,7 +642,7 @@ export default function CreateReel() {
 
                 const safeThumbnailFilename = encodeURIComponent(thumbnail.name);
 
-                const thumbnailPresignRes = await fetch(import.meta.env.VITE_GETPRESIGNEDURLFORUPLOADING, {
+                const thumbnailPresignRes = await fetch(`${import.meta.env.VITE_BASE_API_URL}/reelContentUploader`, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
@@ -708,7 +708,7 @@ export default function CreateReel() {
                 }
             };
 
-            const metadataRes = await fetch(import.meta.env.VITE_ADDCRINZMEMEPOST, {
+            const metadataRes = await fetch(`${import.meta.env.VITE_BASE_API_URL}/addCrinzMemePost`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
