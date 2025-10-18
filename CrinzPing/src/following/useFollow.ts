@@ -39,8 +39,8 @@ const useFollow = (userId?: string) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-const QUERY_HANDLER = `${import.meta.env.VITE_BASE_API_URL}/follow_query_handler`;
-const FOLLOW_UNFOLLOW_POINT = `${import.meta.env.VITE_BASE_API_URL}/follow_handler`;
+  const QUERY_HANDLER = `${import.meta.env.VITE_BASE_API_URL}/follow_query_handler`;
+  const FOLLOW_UNFOLLOW_POINT = `${import.meta.env.VITE_BASE_API_URL}/follow_handler`;
 
   // cache refs
   const statsFetched = useRef(false);
@@ -226,9 +226,10 @@ const FOLLOW_UNFOLLOW_POINT = `${import.meta.env.VITE_BASE_API_URL}/follow_handl
 
       const response = await fetch(FOLLOW_UNFOLLOW_POINT, {
         method: "POST",
-        headers: { "Content-Type": "application/json",
+        headers: {
+          "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
-         },
+        },
         body: JSON.stringify({
           followerId: currentUserId,
           targetId: targetUserId,
@@ -300,10 +301,18 @@ const FOLLOW_UNFOLLOW_POINT = `${import.meta.env.VITE_BASE_API_URL}/follow_handl
   };
 
   useEffect(() => {
-    if (userId) {
-      fetchFollowStats();
+    const currentUserId =
+      auth.user?.profile.sub || localStorage.getItem("sub");
+
+    // skip until both userId and currentUserId exist
+    if (!userId || !currentUserId) {
+      console.log("[useFollow] Waiting for auth to load...");
+      return;
     }
-  }, [userId]);
+
+    fetchFollowStats(true); // force refresh to ensure valid currentUserId
+  }, [userId, auth.user]);
+
 
   return {
     stats,

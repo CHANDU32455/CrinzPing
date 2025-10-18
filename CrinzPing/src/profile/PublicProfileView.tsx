@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import BaseProfileView from "./BaseProfileView";
 import { decodePostData } from "../utils/encodeDecode";
@@ -10,29 +10,27 @@ const PublicProfileEncodedView: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [showLoginModal, setShowLoginModal] = useState(false);
-  
+
   const encoded = searchParams.get("data");
   if (!encoded) return <p>No data to show</p>;
-  
+
   const decoded = decodePostData<{ userDetails: UserDetails; crinzMessages: CrinzMessage[] }>(encoded);
   if (!decoded) return <p>Invalid or corrupted data</p>;
-  
-  // If user is authenticated, redirect to live profile
-  if (auth.isAuthenticated && decoded.userDetails.userId) {
-    navigate(`/profile/${decoded.userDetails.userId}`);
-    return null;
-  }
+
+  // ✅ redirect handled safely in useEffect
+  useEffect(() => {
+    if (auth.isAuthenticated && decoded.userDetails.userId) {
+      navigate(`/profile/${decoded.userDetails.userId}`);
+    }
+  }, [auth.isAuthenticated, decoded.userDetails.userId, navigate]);
 
   const handlePostClick = () => setShowLoginModal(true);
-  
   const handleLogin = () => {
     localStorage.removeItem("manual_logout");
     auth.signinRedirect();
   };
-  
   const handleCancel = () => setShowLoginModal(false);
 
-  // Inline styles for modal
   const modalOverlayStyle: React.CSSProperties = {
     position: "fixed",
     top: 0,
@@ -63,21 +61,19 @@ const PublicProfileEncodedView: React.FC = () => {
     cursor: "pointer",
     fontWeight: "bold",
   };
-
+  
   return (
     <>
       <BaseProfileView
-        // Pass the pre-loaded data instead of userSub
         userDetails={decoded.userDetails}
         crinzMessages={decoded.crinzMessages}
-        loadingUser={false} // Data is already loaded from URL
-        loadingCrinz={false} // Data is already loaded from URL
+        loadingUser={false}
+        loadingCrinz={false}
         allowActions={false}
         showEdit={false}
         showSignout={false}
         onPostClick={handlePostClick}
       />
-
       {showLoginModal && (
         <div style={modalOverlayStyle} onClick={handleCancel}>
           <div style={modalContentStyle} onClick={e => e.stopPropagation()}>

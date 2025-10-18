@@ -7,6 +7,8 @@ import { useAuth } from "react-oidc-context";
 import "../css/UserDetailsForm.css";
 import { useUserDetails, type UserDetails as UserDetailsType } from "../hooks/UserInfo";
 
+const updateUserDetailsPoint = `${import.meta.env.VITE_BASE_API_URL}/postUserData`;
+
 const UserDetailsForm = () => {
     const location = useLocation();
     const navigate = useNavigate();
@@ -124,9 +126,7 @@ const UserDetailsForm = () => {
             // First update the cache for immediate UI response
             updateUserDetails?.(payload, false);
 
-            // Then make the actual API call
-            const apiUrl = import.meta.env.VITE_POST_USER_DETAILS_API_URL;
-            const response = await fetch(apiUrl, {
+            const response = await fetch(updateUserDetailsPoint, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
