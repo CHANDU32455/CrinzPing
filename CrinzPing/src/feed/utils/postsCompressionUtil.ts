@@ -199,9 +199,9 @@ class PostCompressionUtility {
                     // Convert to MP3 using lamejs
                     const mp3Data: Uint8Array = this.encodeAudioBufferToMP3(newBuffer, this.targetBitrate);
 
-                    // @ts-expect-error - lamejs typings mismatch
-                    const mp3Blob = new Blob([mp3Data], { type: "audio/mp3" });
-
+                    // Convert mp3Data to a proper Uint8Array backed by a plain ArrayBuffer
+                    const properMp3Data = new Uint8Array(mp3Data.buffer as ArrayBuffer, mp3Data.byteOffset, mp3Data.byteLength);
+                    const mp3Blob = new Blob([properMp3Data], { type: "audio/mp3" });
 
                     const compressedFile = new globalThis.File(
                         [mp3Blob],
