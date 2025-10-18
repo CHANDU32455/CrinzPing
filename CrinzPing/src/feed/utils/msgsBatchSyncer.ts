@@ -23,7 +23,7 @@ const MAX_RETRIES = 3;
 
 class MsgsBatchSyncer {
     private pendingActions: BatchAction[] = [];
-    private syncTimeout: number | null = null;
+    private syncTimeout: ReturnType<typeof setTimeout> | null = null;
     private retryCount = 0;
     private isOnline = navigator.onLine;
     private syncStateCallbacks: Array<(state: SyncState) => void> = [];

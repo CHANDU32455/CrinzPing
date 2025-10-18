@@ -202,6 +202,7 @@ class PostCompressionUtility {
                     // @ts-expect-error - lamejs typings mismatch
                     const mp3Blob = new Blob([mp3Data], { type: "audio/mp3" });
 
+
                     const compressedFile = new globalThis.File(
                         [mp3Blob],
                         `compressed_${audioFile.name.replace(/\.[^/.]+$/, '')}.mp3`,
