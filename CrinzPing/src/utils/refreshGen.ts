@@ -44,8 +44,7 @@ export default AuthManager;
 
 
  */}
-
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { useAuth } from "react-oidc-context";
 import { setAuthData, clearAuthData } from "./useAuthStore";
 import { useNavigate } from "react-router-dom";
@@ -54,51 +53,56 @@ const MAX_INACTIVITY_DAYS = 5;
 
 const AuthManager: React.FC = () => {
   const auth = useAuth();
-  const Navigate = useNavigate();
+  const navigate = useNavigate();
+  const attemptedAutoLogin = useRef(false);
+
   // 1. Sync auth state with localStorage
   useEffect(() => {
     if (auth.isAuthenticated && auth.user) {
-      // Save auth data to localStorage
       setAuthData(auth.user as any);
       localStorage.setItem("last_login", Date.now().toString());
       localStorage.removeItem("manual_logout");
     } else {
-      // Clear auth data if not authenticated
       clearAuthData();
     }
   }, [auth.isAuthenticated, auth.user]);
 
-  // 2. Check if we should try to auto-login when app loads
+  // 2. Auto-login attempt (only once)
   useEffect(() => {
-    // If already logged in or still loading, do nothing
-    if (auth.isAuthenticated || auth.isLoading) return;
-    
-    // Check if user manually logged out
+    if (auth.isAuthenticated || auth.isLoading || attemptedAutoLogin.current) return;
+
+    attemptedAutoLogin.current = true;
+
     const manualLogout = localStorage.getItem("manual_logout") === "true";
     if (manualLogout) return;
-    
-    // Check if we have a recent login
+
     const lastLogin = localStorage.getItem("last_login");
     if (!lastLogin) return;
 
-    const daysInactive = (Date.now() - parseInt(lastLogin, 10)) / (1000 * 60 * 60 * 24);
-    
-    // If within the 5-day window, try to silently login
+    const daysInactive =
+      (Date.now() - parseInt(lastLogin, 10)) / (1000 * 60 * 60 * 24);
+
     if (daysInactive <= MAX_INACTIVITY_DAYS) {
-      auth.signinSilent()
-        .then(() => {
-          console.log("Auto-login successful");
+      auth
+        .signinSilent()
+        .then((user) => {
+          if (user && user.access_token) {
+            console.log("Auto-login successful");
+          } else {
+            console.warn("Auto-login failed (no valid token)");
+            clearAuthData();
+            navigate("/");
+          }
         })
-        .catch(() => {
-          console.log("Auto-login failed");
+        .catch((err) => {
+          console.error("Auto-login failed:", err);
           clearAuthData();
-          Navigate("/");
+          navigate("/");
         });
     } else {
-      // Session expired beyond 5 days
       clearAuthData();
     }
-  }, [auth.isLoading]); // Run when app finishes loading
+  }, [auth.isLoading]);
 
   return null;
 };

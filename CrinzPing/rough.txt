@@ -1,1 +1,569 @@
 npx ngrok http 5173
+
+
+import { useState, useEffect, useCallback, useRef } from "react";
+import axios from "axios";
+import { useAuth } from "react-oidc-context";
+
+export interface Reel {
+  postId: string;
+  userId: string;
+  caption: string;
+  tags: string[];
+  timestamp: number;
+  likes: number;
+  comments: number;
+  visibility: string;
+  files: { s3Key: string; fileName: string; type: string; presignedUrl: string }[];
+}
+
+export const useReels = (searchTerm?: string) => {
+  const auth = useAuth();
+  const [reels, setReels] = useState<Reel[]>([]);
+  const [lastKey, setLastKey] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+
+  // Use ref for the flag instead of state
+  const isFetchingRef = useRef(false);
+
+  const fetchReels = useCallback(
+    async (append = false) => {
+      // Prevent concurrent requests
+      if (!auth.user?.access_token || isFetchingRef.current) {
+        return;
+      }
+
+      isFetchingRef.current = true;
+      setLoading(true);
+      setError(null);
+      
+      try {
+        console.log("🔄 Fetching reels", { append, searchTerm });
+        
+        const res = await axios.post(
+          `${import.meta.env.VITE_BASE_API_URL}/reelsFetcher`,
+          { 
+            limit: 10, 
+            lastKey: append ? lastKey : undefined, 
+            searchTerm 
+          },
+          { 
+            headers: { Authorization: `Bearer ${auth.user.access_token}` },
+            timeout: 10000
+          }
+        );
+
+        const fetchedReels: Reel[] = res.data.reels || [];
+        console.log("✅ Reels fetched:", fetchedReels.length);
+
+        setReels(prev => append ? [...prev, ...fetchedReels] : fetchedReels);
+        setLastKey(res.data.lastEvaluatedKey);
+        setHasMore(!!res.data.lastEvaluatedKey);
+        
+      } catch (err: any) {
+        console.error("❌ Fetch error:", err);
+        setError(err.message || "Failed to fetch reels");
+        
+        // Reset state on error to allow retry
+        if (!append) {
+          setReels([]);
+          setHasMore(true);
+        }
+      } finally {
+        setLoading(false);
+        isFetchingRef.current = false;
+      }
+    },
+    [auth.user?.access_token, lastKey, searchTerm]
+  );
+
+  const loadMore = useCallback(() => {
+    if (hasMore && !loading) {
+      fetchReels(true);
+    }
+  }, [hasMore, loading, fetchReels]);
+
+  const refresh = useCallback(() => {
+    setLastKey(null);
+    setHasMore(true);
+    fetchReels(false);
+  }, [fetchReels]);
+
+  // Simple useEffect - only run when searchTerm changes
+  useEffect(() => {
+    refresh();
+  }, [searchTerm]);
+
+  return { 
+    reels, 
+    loading, 
+    error, 
+    hasMore, 
+    loadMore, 
+    refresh,
+    retry: refresh 
+  };
+};   
+
+
+import React, { useRef, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useReels, type Reel } from "../../hooks/usereels";
+import "../../css/ReelsFeed.css";
+import ShareModal from "./ShareModal";
+import CommentModal from "./CommentModal";
+
+interface LocalReel extends Reel {
+  isLiked?: boolean;
+}
+
+function ReelsFeed() {
+  const navigate = useNavigate();
+  const { reels, loading, error, hasMore, loadMore, retry } = useReels();
+  const [currentPlayingIndex, setCurrentPlayingIndex] = useState<number>(-1);
+  const [isManuallyPaused, setIsManuallyPaused] = useState<boolean>(false);
+  const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(new Set());
+  const [selectedReel, setSelectedReel] = useState<LocalReel | null>(null);
+  const [shareReel, setShareReel] = useState<LocalReel | null>(null);
+
+  const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+
+  // Track muted state for each video individually
+  const mutedStatesRef = useRef<boolean[]>([]);
+
+  // Simple local reels with likes
+  const [localReels, setLocalReels] = useState<LocalReel[]>([]);
+
+  useEffect(() => {
+    setLocalReels(reels.map(reel => ({ ...reel, isLiked: false })));
+    // Initialize muted states for all reels
+    mutedStatesRef.current = new Array(reels.length).fill(false);
+  }, [reels]);
+
+  // Handle modals
+  useEffect(() => {
+    if (selectedReel || shareReel) {
+      document.body.classList.add('modal-open');
+      if (currentPlayingIndex !== -1) {
+        videoRefs.current[currentPlayingIndex]?.pause();
+      }
+    } else {
+      document.body.classList.remove('modal-open');
+      if (!isManuallyPaused && currentPlayingIndex !== -1) {
+        playVideoSafely(currentPlayingIndex);
+      }
+    }
+  }, [selectedReel, shareReel, currentPlayingIndex, isManuallyPaused]);
+
+  // Safe video playback with proper audio management
+  const playVideoSafely = async (index: number) => {
+    const video = videoRefs.current[index];
+    if (!video || !video.paused) return;
+
+    try {
+      // Reset video state first
+      video.currentTime = 0;
+      
+      // Try playing with audio first
+      video.muted = false;
+      await video.play();
+      
+      console.log(`✅ Video ${index} playing with audio`);
+      
+    } catch (error) {
+      console.log(`🔇 Video ${index} autoplay prevented, trying muted`);
+      
+      // If autoplay fails, try muted
+      try {
+        video.muted = true;
+        await video.play();
+        mutedStatesRef.current[index] = true;
+        console.log(`✅ Video ${index} playing muted`);
+      } catch (mutedError) {
+        console.log(`❌ Video ${index} failed to play even muted`);
+        // Video completely failed, show play button overlay
+      }
+    }
+  };
+
+  // Only play the most visible video - SIMPLE & RELIABLE
+  useEffect(() => {
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // Find the most centered video
+        const visibleVideos = entries.filter(entry => entry.isIntersecting);
+        
+        if (visibleVideos.length === 0) {
+          // No videos visible, pause current
+          if (currentPlayingIndex !== -1) {
+            videoRefs.current[currentPlayingIndex]?.pause();
+            setCurrentPlayingIndex(-1);
+          }
+          return;
+        }
+
+        // Find the most centered video
+        let mostCenteredIndex = -1;
+        let smallestDistance = Infinity;
+
+        visibleVideos.forEach(entry => {
+          const index = videoRefs.current.findIndex(ref => ref === entry.target);
+          const rect = entry.boundingClientRect;
+          const viewportCenter = window.innerHeight / 2;
+          const videoCenter = rect.top + (rect.height / 2);
+          const distance = Math.abs(videoCenter - viewportCenter);
+
+          if (distance < smallestDistance) {
+            smallestDistance = distance;
+            mostCenteredIndex = index;
+          }
+        });
+
+        // Only switch if we have a new centered video
+        if (mostCenteredIndex !== -1 && mostCenteredIndex !== currentPlayingIndex && !isManuallyPaused && !selectedReel && !shareReel) {
+          // Pause current video
+          if (currentPlayingIndex !== -1) {
+            videoRefs.current[currentPlayingIndex]?.pause();
+          }
+
+          // Play new centered video
+          setCurrentPlayingIndex(mostCenteredIndex);
+          playVideoSafely(mostCenteredIndex);
+        }
+      },
+      { 
+        threshold: 0.6, // Single threshold for simplicity
+        rootMargin: '0px 0px 0px 0px' 
+      }
+    );
+
+    observerRef.current = observer;
+    videoRefs.current.forEach(video => video && observer.observe(video));
+
+    return () => observer.disconnect();
+  }, [localReels.length, isManuallyPaused, selectedReel, shareReel, currentPlayingIndex]);
+
+  // Load more on scroll
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!containerRef.current || !hasMore || loading) return;
+
+      const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
+      if (scrollHeight - scrollTop <= clientHeight + 100) {
+        loadMore();
+      }
+    };
+
+    const container = containerRef.current;
+    if (container) {
+      container.addEventListener('scroll', handleScroll);
+      return () => container.removeEventListener('scroll', handleScroll);
+    }
+  }, [hasMore, loading, loadMore]);
+
+  // Video click handler with proper audio management
+  const handleVideoClick = async (index: number) => {
+    const video = videoRefs.current[index];
+    if (!video) return;
+
+    if (video.paused) {
+      // Pause currently playing video if different
+      if (currentPlayingIndex !== -1 && currentPlayingIndex !== index) {
+        videoRefs.current[currentPlayingIndex]?.pause();
+      }
+
+      setIsManuallyPaused(false);
+      setCurrentPlayingIndex(index);
+      
+      // If video was muted due to autoplay restrictions, try to unmute on user interaction
+      if (mutedStatesRef.current[index]) {
+        try {
+          video.muted = false;
+          await video.play();
+          mutedStatesRef.current[index] = false;
+          console.log(`🔊 Video ${index} unmuted by user click`);
+        } catch (error) {
+          // If unmuting fails, keep it muted but play
+          video.muted = true;
+          await video.play();
+          console.log(`🔇 Video ${index} still muted after click`);
+        }
+      } else {
+        // Normal play
+        await playVideoSafely(index);
+      }
+    } else {
+      video.pause();
+      setIsManuallyPaused(true);
+      setCurrentPlayingIndex(-1);
+    }
+  };
+
+  // Video error handler
+  const handleVideoError = (index: number) => {
+    console.error(`❌ Video ${index} failed to load`);
+    // You could set a fallback state here or show an error overlay
+  };
+
+  // Video loaded handler
+  const handleVideoLoaded = (index: number) => {
+    console.log(`📹 Video ${index} loaded successfully`);
+  };
+
+  // Caption click handler
+  const handleCaptionClick = (index: number, event: React.MouseEvent) => {
+    event.stopPropagation();
+    setExpandedDescriptions(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(index)) {
+        newSet.delete(index);
+      } else {
+        newSet.add(index);
+      }
+      return newSet;
+    });
+  };
+
+  // Action handlers
+  const handleLike = (index: number) => {
+    setLocalReels(prev => prev.map((reel, i) =>
+      i === index ? {
+        ...reel,
+        isLiked: !reel.isLiked,
+        likes: reel.isLiked ? reel.likes - 1 : reel.likes + 1
+      } : reel
+    ));
+  };
+
+  const handleComment = (index: number) => {
+    setSelectedReel(localReels[index]);
+  };
+
+  const handleShare = (index: number) => {
+    setShareReel(localReels[index]);
+  };
+
+  // Video ref handler
+  const handleVideoRef = (index: number) => (el: HTMLVideoElement | null) => {
+    videoRefs.current[index] = el;
+    if (el) {
+      // Reset muted state when new video element is created
+      mutedStatesRef.current[index] = false;
+    }
+  };
+
+  // Video ended - auto play next with proper audio handling
+  const handleVideoEnded = async (index: number) => {
+    if (index < localReels.length - 1) {
+      const nextIndex = index + 1;
+      const nextVideo = videoRefs.current[nextIndex];
+      
+      if (nextVideo && nextVideo.paused) {
+        // Pause current video
+        videoRefs.current[index]?.pause();
+        
+        // Play next video
+        setCurrentPlayingIndex(nextIndex);
+        await playVideoSafely(nextIndex);
+        
+        // Scroll next video into view smoothly
+        setTimeout(() => {
+          const nextReelElement = containerRef.current?.querySelector(`[data-reel-index="${nextIndex}"]`);
+          nextReelElement?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+      }
+    }
+  };
+
+  // Helper function
+  const truncateCaption = (caption: string, maxLength: number = 20): string => {
+    if (caption.length <= maxLength) return caption;
+    return caption.substring(0, maxLength) + '...';
+  };
+
+  // Modal handlers
+  const handleCloseCommentModal = () => setSelectedReel(null);
+  const handleCloseShareModal = () => setShareReel(null);
+
+  const handleNewComment = (reelId: string) => {
+    setLocalReels(prev => prev.map(reel =>
+      reel.postId === reelId ? { ...reel, comments: reel.comments + 1 } : reel
+    ));
+  };
+
+  const handleDeleteComment = (reelId: string) => {
+    setLocalReels(prev => prev.map(reel =>
+      reel.postId === reelId ? { ...reel, comments: Math.max(0, reel.comments - 1) } : reel
+    ));
+  };
+
+  if (error) {
+    return (
+      <div className="reels-error">
+        <div className="reels-error-content">
+          <p>Failed to load reels</p>
+          <button onClick={retry}>Try Again</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div ref={containerRef} className="reels-feed-container">
+        <div className="reels-list">
+          {localReels.map((reel, index) => (
+            <div key={reel.postId} className="reel-item" data-reel-index={index}>
+              <div className="reel-video-container">
+                {reel.files[0]?.presignedUrl && (
+                  <>
+                    <video
+                      ref={handleVideoRef(index)}
+                      className="reel-video"
+                      src={reel.files[0].presignedUrl}
+                      loop
+                      muted={mutedStatesRef.current[index]}
+                      playsInline
+                      onClick={() => handleVideoClick(index)}
+                      onEnded={() => handleVideoEnded(index)}
+                      onError={() => handleVideoError(index)}
+                      onLoadedData={() => handleVideoLoaded(index)}
+                      preload="metadata"
+                    />
+
+                    {currentPlayingIndex !== index && (
+                      <div className="reel-play-overlay" onClick={() => handleVideoClick(index)}>
+                        <div className="reel-play-button">
+                          <svg fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z" />
+                          </svg>
+                        </div>
+                        {mutedStatesRef.current[index] && (
+                          <div className="reel-muted-indicator">🔇</div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Show muted indicator when video is playing but muted */}
+                    {currentPlayingIndex === index && mutedStatesRef.current[index] && (
+                      <div className="reel-muted-badge">Muted</div>
+                    )}
+                  </>
+                )}
+
+                <div className="reel-info-overlay">
+                  <div className="reel-user-info">
+                    <div className="reel-user-avatar" onClick={() => navigate(`/profile/${reel.userId}`)}>
+                      <span>{reel.userId?.charAt(0)?.toUpperCase() || 'U'}</span>
+                    </div>
+
+                    <div className="reel-caption-container" onClick={(e) => handleCaptionClick(index, e)}>
+                      <p className="reel-username">@{reel.userId?.slice(0, 8) || 'unknown'}</p>
+                      <p className={`reel-caption ${expandedDescriptions.has(index) ? 'expanded' : ''}`}>
+                        {expandedDescriptions.has(index) ? reel.caption : truncateCaption(reel.caption)}
+                      </p>
+
+                      {expandedDescriptions.has(index) && reel.tags && reel.tags.length > 0 && (
+                        <div className="reel-tags">
+                          {reel.tags.map((tag, tagIndex) => (
+                            <span key={tagIndex} className="reel-tag">#{tag}</span>
+                          ))}
+                        </div>
+                      )}
+
+                      {reel.caption.length > 20 && (
+                        <div className="reel-read-more">
+                          {expandedDescriptions.has(index) ? 'Show less' : 'Read more'}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="reel-actions-right">
+                  <div className="reel-action-buttons">
+                    <div className="reel-action-item">
+                      <div className={`reel-action-button ${reel.isLiked ? 'liked' : ''}`} onClick={() => handleLike(index)}>
+                        <svg fill={reel.isLiked ? "#ff0000" : "currentColor"} viewBox="0 0 24 24">
+                          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54z" />
+                        </svg>
+                      </div>
+                      <span className="reel-action-count">{reel.likes}</span>
+                    </div>
+
+                    <div className="reel-action-item">
+                      <div className="reel-action-button" onClick={() => handleComment(index)}>
+                        <svg fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14zM8 15h2.5l1.5 1.5 1.5-1.5H16v-2.5l1.5-1.5-1.5-1.5V8h-2.5L13 6.5 11.5 8H9v2.5L7.5 12 9 13.5V15z" />
+                        </svg>
+                      </div>
+                      <span className="reel-action-count">{reel.comments}</span>
+                    </div>
+
+                    <div className="reel-action-item">
+                      <div className="reel-action-button" onClick={() => handleShare(index)}>
+                        <svg fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z" />
+                        </svg>
+                      </div>
+                      <span className="reel-action-count">Share</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {loading && (
+          <div className="reels-loading">
+            <div className="reels-loading-spinner"></div>
+          </div>
+        )}
+
+        {!hasMore && localReels.length > 0 && (
+          <div className="reels-end">
+            <p>No more reels to show</p>
+          </div>
+        )}
+      </div>
+
+      {/* Modals */}
+      {selectedReel && (
+        <CommentModal
+          postId={selectedReel.postId}
+          isOpen={true}
+          onClose={handleCloseCommentModal}
+          userName={selectedReel.userId || 'unknown'}
+          postMessage={selectedReel.caption}
+          currentUserId={"current-user-id"}
+          onNewComment={handleNewComment}
+          onDeleteComment={handleDeleteComment}
+        />
+      )}
+
+      {shareReel && (
+        <ShareModal
+          postId={shareReel.postId}
+          userName={shareReel.userId || 'unknown'}
+          message={shareReel.caption}
+          timestamp={new Date().toISOString()}
+          likeCount={shareReel.likes}
+          commentCount={shareReel.comments}
+          isOpen={true}
+          onClose={handleCloseShareModal}
+        />
+      )}
+    </>
+  );
+};
+
+export default ReelsFeed;

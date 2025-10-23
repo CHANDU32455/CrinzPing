@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { usePersonalizedData } from "./usePersonalizedData";
 
 // Custom hook for intersection observer (viewport detection)
@@ -11,7 +11,7 @@ const useInViewport = (options = {}) => {
     const observer = new IntersectionObserver(([entry]) => {
       const nowInViewport = entry.isIntersecting;
       setIsInViewport(nowInViewport);
-      
+
       if (nowInViewport && !hasBeenInViewport) {
         setHasBeenInViewport(true);
       }
@@ -41,14 +41,14 @@ const useAudioPlayer = () => {
 
   const playAudio = useCallback((id: string, audioUrl: string) => {
     stopAllAudio();
-    
+
     let audio = audioInstances.current.get(id);
     if (!audio) {
       audio = new Audio(audioUrl);
       audio.volume = 0.7;
       audioInstances.current.set(id, audio);
     }
-    
+
     audio.play().catch((e) => console.warn("Audio play failed:", e));
   }, []);
 
@@ -79,7 +79,6 @@ const useVideoPlayer = () => {
   const registerVideo = useCallback((id: string, video: HTMLVideoElement | null) => {
     if (video) {
       videoRefs.current.set(id, video);
-      // Initialize as NOT muted by default
       if (!mutedStates.current.has(id)) {
         mutedStates.current.set(id, false);
       }
@@ -97,7 +96,9 @@ const useVideoPlayer = () => {
       const isMuted = mutedStates.current.get(id) ?? false;
       video.muted = isMuted;
       video.play().catch((e) => {
-        console.warn("Video play failed:", e);
+        if (e.name !== 'AbortError') {
+          console.warn("Video play failed:", e);
+        }
       });
       playStates.current.set(id, true);
     }
@@ -116,10 +117,10 @@ const useVideoPlayer = () => {
     if (video) {
       const currentlyMuted = mutedStates.current.get(id) ?? false;
       const newMutedState = !currentlyMuted;
-      
+
       video.muted = newMutedState;
       mutedStates.current.set(id, newMutedState);
-      
+
       return newMutedState;
     }
     return false;
@@ -133,7 +134,15 @@ const useVideoPlayer = () => {
     return playStates.current.get(id) ?? false;
   }, []);
 
-  return { registerVideo, playVideo, pauseVideo, toggleMute, isMuted, isPlaying };
+  // Return stable references
+  return useMemo(() => ({
+    registerVideo,
+    playVideo,
+    pauseVideo,
+    toggleMute,
+    isMuted,
+    isPlaying
+  }), [registerVideo, playVideo, pauseVideo, toggleMute, isMuted, isPlaying]);
 };
 
 // Global media manager
@@ -228,11 +237,10 @@ const ImageCarousel = ({ images }: { images: Array<{ url: string; type: string }
                 e.stopPropagation();
                 setCurrentIndex(index);
               }}
-              className={`w-3 h-3 rounded-full transition-all ${
-                index === currentIndex 
-                  ? 'bg-white scale-110' 
+              className={`w-3 h-3 rounded-full transition-all ${index === currentIndex
+                  ? 'bg-white scale-110'
                   : 'bg-white bg-opacity-50 hover:bg-opacity-70'
-              }`}
+                }`}
               aria-label={`Go to image ${index + 1}`}
             />
           ))}
@@ -243,8 +251,8 @@ const ImageCarousel = ({ images }: { images: Array<{ url: string; type: string }
 };
 
 // Engagement Buttons Component
-const EngagementButtons = ({ item, onLike, onShare, onComment }: { 
-  item: any; 
+const EngagementButtons = ({ item, onLike, onShare, onComment }: {
+  item: any;
   onLike: () => void;
   onShare: () => void;
   onComment: () => void;
@@ -261,7 +269,7 @@ const EngagementButtons = ({ item, onLike, onShare, onComment }: {
   return (
     <div className="flex items-center justify-between text-gray-400 text-sm mt-4 pt-4 border-t border-gray-700">
       <div className="flex items-center gap-4 md:gap-6">
-        <button 
+        <button
           onClick={handleLike}
           className="flex items-center gap-2 hover:text-red-400 transition-colors"
           aria-label={liked ? "Unlike" : "Like"}
@@ -271,8 +279,8 @@ const EngagementButtons = ({ item, onLike, onShare, onComment }: {
           </span>
           <span>{likeCount}</span>
         </button>
-        
-        <button 
+
+        <button
           onClick={onComment}
           className="flex items-center gap-2 hover:text-blue-400 transition-colors"
           aria-label="Comment"
@@ -280,8 +288,8 @@ const EngagementButtons = ({ item, onLike, onShare, onComment }: {
           <span className="text-lg">💬</span>
           <span>{item.commentCount || 0}</span>
         </button>
-        
-        <button 
+
+        <button
           onClick={onShare}
           className="flex items-center gap-2 hover:text-green-400 transition-colors"
           aria-label="Share"
@@ -304,15 +312,14 @@ const ReelItem = ({ item }: { item: any }) => {
   const [isVideoMuted, setIsVideoMuted] = useState(false);
   const [showPlayButton, setShowPlayButton] = useState(false);
 
-  // Register video - FIXED: Only register once
   useEffect(() => {
     if (videoRef.current) {
       registerVideo(item.id, videoRef.current);
-      setIsVideoMuted(isMuted(item.id));
+      setIsVideoMuted(isMuted(item.id));     // Get initial muted state once
     }
-  }, [item.id, registerVideo, isMuted]);
+  }, [item.id, registerVideo]);
 
-  // Add event listeners for play/pause
+  // Add event listeners for play/pause1
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -322,11 +329,11 @@ const ReelItem = ({ item }: { item: any }) => {
     const handleLoadedData = () => {
       setShowPlayButton(true);
     };
-    
+
     video.addEventListener('play', handlePlay);
     video.addEventListener('pause', handlePause);
     video.addEventListener('loadeddata', handleLoadedData);
-    
+
     return () => {
       video.removeEventListener('play', handlePlay);
       video.removeEventListener('pause', handlePause);
@@ -368,7 +375,7 @@ const ReelItem = ({ item }: { item: any }) => {
   const handleComment = () => console.log('Comment on reel:', item.id);
 
   return (
-    <div 
+    <div
       ref={ref}
       className="bg-gray-900 border border-gray-700 rounded-2xl p-4 md:p-6 w-full hover:border-purple-500 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-xl"
     >
@@ -388,7 +395,7 @@ const ReelItem = ({ item }: { item: any }) => {
             </p>
           </div>
         </div>
-        
+
         <span className="px-3 py-1 bg-purple-900 bg-opacity-50 rounded-full text-xs font-medium border border-purple-700">
           REEL
         </span>
@@ -399,7 +406,7 @@ const ReelItem = ({ item }: { item: any }) => {
         <div className="relative mb-4 rounded-2xl overflow-hidden bg-gradient-to-br from-purple-900/20 to-pink-900/20 border border-purple-700/30">
           {/* Gradient Border Effect */}
           <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-2xl pointer-events-none"></div>
-          
+
           <div className="relative">
             <video
               ref={videoRef}
@@ -409,13 +416,13 @@ const ReelItem = ({ item }: { item: any }) => {
               loop
               playsInline
               className="w-full rounded-xl object-cover bg-black shadow-2xl transition-all duration-500 hover:scale-[1.02]"
-              style={{ 
+              style={{
                 maxHeight: '70vh',
                 minHeight: '400px'
               }}
               onClick={handleVideoToggle}
             />
-            
+
             {/* Play/Pause Overlay Button */}
             {showPlayButton && (
               <button
@@ -431,11 +438,11 @@ const ReelItem = ({ item }: { item: any }) => {
               </button>
             )}
           </div>
-          
+
           {/* Floating Controls */}
           <div className="absolute bottom-4 right-4 flex gap-2">
             {/* Play/Pause Button */}
-            <button 
+            <button
               onClick={handleVideoToggle}
               className="w-12 h-12 bg-black/60 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-black/80 transition-all duration-300 hover:scale-110 border border-white/20"
               aria-label={isPlaying(item.id) ? "Pause video" : "Play video"}
@@ -446,7 +453,7 @@ const ReelItem = ({ item }: { item: any }) => {
             </button>
 
             {/* Mute Button */}
-            <button 
+            <button
               onClick={handleMuteToggle}
               className="w-12 h-12 bg-black/60 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-black/80 transition-all duration-300 hover:scale-110 border border-white/20"
               aria-label={isVideoMuted ? "Unmute video" : "Mute video"}
@@ -464,14 +471,14 @@ const ReelItem = ({ item }: { item: any }) => {
 
       {/* Content */}
       {item.content && (
-          <p className="text-gray-200 text-base leading-relaxed">{item.content}</p>
+        <p className="text-gray-200 text-base leading-relaxed">{item.content}</p>
       )}
 
       {/* Tags */}
       {item.tags && item.tags.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {item.tags.slice(0, 4).map((tag: string, index: number) => (
-            <span 
+            <span
               key={index}
               className="px-3 py-2 bg-gradient-to-r from-purple-900/50 to-pink-900/50 text-purple-300 text-sm rounded-lg border border-purple-700/30 hover:border-purple-500/50 transition-all duration-300 hover:scale-105"
             >
@@ -482,13 +489,13 @@ const ReelItem = ({ item }: { item: any }) => {
       )}
 
       {/* Enhanced Engagement Buttons */}
-        <EngagementButtons 
-          item={item}
-          onLike={handleLike}
-          onShare={handleShare}
-          onComment={handleComment}
-        />
-      </div>
+      <EngagementButtons
+        item={item}
+        onLike={handleLike}
+        onShare={handleShare}
+        onComment={handleComment}
+      />
+    </div>
   );
 };
 
@@ -512,7 +519,7 @@ const PostItem = ({ item }: { item: any }) => {
   const handleComment = () => console.log('Comment on post:', item.id);
 
   return (
-    <div 
+    <div
       ref={ref}
       className="bg-gray-900 border border-gray-700 rounded-2xl p-4 md:p-6 w-full hover:border-blue-500 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-xl"
     >
@@ -532,7 +539,7 @@ const PostItem = ({ item }: { item: any }) => {
             </p>
           </div>
         </div>
-        
+
         <span className="px-3 py-1 bg-blue-900 bg-opacity-50 rounded-full text-xs font-medium border border-blue-700">
           POST
         </span>
@@ -547,7 +554,7 @@ const PostItem = ({ item }: { item: any }) => {
       {item.tags && item.tags.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-4">
           {item.tags.slice(0, 4).map((tag: string, index: number) => (
-            <span 
+            <span
               key={index}
               className="px-3 py-1 bg-gray-800 text-blue-400 text-sm rounded-full"
             >
@@ -571,7 +578,7 @@ const PostItem = ({ item }: { item: any }) => {
       )}
 
       {/* Engagement Buttons */}
-      <EngagementButtons 
+      <EngagementButtons
         item={item}
         onLike={handleLike}
         onShare={handleShare}
@@ -590,7 +597,7 @@ const CrinzMessageItem = ({ item }: { item: any }) => {
   const handleComment = () => console.log('Comment on message:', item.id);
 
   return (
-    <div 
+    <div
       ref={ref}
       className="bg-gradient-to-r from-cyan-900 to-blue-900 border border-cyan-700 rounded-2xl p-4 md:p-6 w-full shadow-lg"
     >
@@ -610,7 +617,7 @@ const CrinzMessageItem = ({ item }: { item: any }) => {
             </p>
           </div>
         </div>
-        
+
         <span className="px-3 py-1 bg-cyan-800 bg-opacity-50 rounded-full text-xs font-medium border border-cyan-600">
           CRINZ
         </span>
@@ -623,7 +630,7 @@ const CrinzMessageItem = ({ item }: { item: any }) => {
       {item.tags && item.tags.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-3">
           {item.tags.map((tag: string, index: number) => (
-            <span 
+            <span
               key={index}
               className="px-3 py-1 bg-cyan-800 bg-opacity-50 text-cyan-300 text-sm rounded-full"
             >
@@ -634,7 +641,7 @@ const CrinzMessageItem = ({ item }: { item: any }) => {
       )}
 
       {/* Engagement Buttons */}
-      <EngagementButtons 
+      <EngagementButtons
         item={item}
         onLike={handleLike}
         onShare={handleShare}
@@ -691,7 +698,7 @@ export const PersonalizedFeed = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 py-4 md:py-8 px-3 md:px-4">
+    <div className="min-h-screen bg-gray-950 md:py-8 md:px-4">
       {/* Feed - Vertical Stack */}
       <div className="max-w-2xl mx-auto space-y-6 md:space-y-8 px-2">
         {shuffledContent.map((item) => (

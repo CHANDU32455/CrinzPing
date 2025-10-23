@@ -11,14 +11,13 @@ const cognitoAuthConfig = {
   scope: "openid email phone",
   automaticSilentRenew: true,
   silent_redirect_uri: import.meta.env.VITE_COGNITO_SILENT_REDIRECT_URI,
-  userStore: new WebStorageStateStore({ store: window.localStorage }), // ✅ persist across tabs
+  userStore: new WebStorageStateStore({ store: window.localStorage }),
 };
 
 createRoot(document.getElementById("root")!).render(
-  
-    <AuthProvider {...cognitoAuthConfig}>
-      <App />
-    </AuthProvider>
+  <AuthProvider {...cognitoAuthConfig}>
+    <App />
+  </AuthProvider>
 );
 {/**
   
