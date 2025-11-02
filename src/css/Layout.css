@@ -1,0 +1,370 @@
+/* Layout.css */
+.layout-wrapper {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: #0b0b0b;
+  font-family: "Fira Code", monospace;
+  padding-top: 60px;
+  padding-bottom: 80px;
+  box-sizing: border-box;
+  color: #ccc;
+}
+
+/* Top Navbar */
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1.5rem;
+  background: #111;
+  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.05);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  height: 60px;
+  box-sizing: border-box;
+}
+
+.navbar-title-center {
+  font-size: 1.5rem;
+  font-weight: bold;
+  text-decoration: none;
+  color: #f1f1f1;
+  display: flex;
+  align-items: center;
+}
+
+.logo-img {
+  width: 24px;
+  height: 24px;
+  margin-left: 8px;
+  border-radius: 50%;
+}
+
+/* Sign In/Out Button */
+.navbar-right {
+  display: flex;
+  align-items: center;
+}
+
+.auth-button {
+  background: transparent;
+  border: 1px solid #555;
+  color: #ccc;
+  font-size: 0.9rem;
+  padding: 0.4rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.auth-button:hover {
+  background: #222;
+  color: #fff;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.1);
+}
+
+.auth-button.sign-out {
+  border-color: #aa4444;
+  color: #ff6b6b;
+}
+
+.auth-button.sign-out:hover {
+  background: #aa4444;
+  color: #fff;
+  box-shadow: 0 0 8px rgba(255, 77, 77, 0.4);
+}
+
+/* Main Content */
+.content {
+  flex: 1;
+  padding: 1rem 1.5rem;
+  overflow-y: auto;
+}
+
+/* Bottom Navbar */
+.bottom-navbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(20, 20, 20, 0.95);
+  backdrop-filter: blur(10px);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 1rem 0;
+  border-top: 1px solid rgba(201, 40, 40, 0.05);
+  height: 80px;
+  z-index: 1000;
+  box-sizing: border-box;
+}
+
+/* Navigation Icons */
+.nav-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 0.75rem;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.icon-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon {
+  font-size: 1.8rem;
+  color: #777;
+  transition: all 0.3s ease;
+  filter: grayscale(0.5);
+}
+
+.nav-icon:hover .icon {
+  color: #e0e0e0;
+  filter: grayscale(0);
+  transform: scale(1.2) rotate(5deg);
+}
+
+.nav-icon.active .icon {
+  color: #fff;
+  animation: iconPulse 2s infinite;
+}
+
+/* Icon Tooltips */
+.icon-tooltip {
+  position: absolute;
+  bottom: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1f1f1f;
+  color: #ccc;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  white-space: nowrap;
+  animation: tooltipFadeIn 0.3s ease;
+  border: 1px solid rgba(160, 78, 78, 0.68);
+}
+
+.icon-tooltip::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-bottom: 4px solid #b42121;
+}
+
+/* Feed Dropdown */
+.feed-dropdown-container {
+  position: relative;
+  background-color: transparent;
+}
+
+.feed-trigger {
+  position: relative;
+}
+
+/* The only glowing element */
+.pulse-dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
+  background: #00ffcc;
+  border-radius: 50%;
+  animation: pulse 1.5s infinite;
+  box-shadow: 0 0 6px #00ffcc;
+}
+
+.feed-dropdown {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(30, 30, 30, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 0.5rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  z-index: 1001;
+  display: flex;
+  gap: 0.5rem;
+  animation: dropdownSlideUp 0.3s ease-out;
+}
+
+.feed-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 0.75rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #aaa;
+}
+
+.feed-option:hover {
+  background: rgba(145, 65, 65, 0.05);
+  color: #eee;
+  transform: scale(1.1);
+}
+
+.feed-option.active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.feed-icon {
+  font-size: 1.4rem;
+  transition: transform 0.2s ease;
+}
+
+.feed-option:hover .feed-icon {
+  transform: scale(1.2);
+}
+
+.feed-label {
+  display: none;
+}
+
+/* Animations */
+@keyframes iconPulse {
+  0%, 100% {
+    transform: scale(1);
+    text-shadow: 0 0 0 rgba(255, 255, 255, 0);
+  }
+  50% {
+    transform: scale(1.1);
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.5);
+    opacity: 0.7;
+  }
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes dropdownSlideUp {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* Responsiveness */
+@media (max-width: 768px) {
+  .bottom-navbar {
+    height: 70px;
+    padding: 0.75rem 0;
+  }
+
+  .icon {
+    font-size: 1.6rem;
+  }
+
+  .feed-dropdown {
+    margin-bottom: 0.75rem;
+    padding: 0.4rem;
+    gap: 0.4rem;
+  }
+
+  .feed-option {
+    padding: 0.6rem;
+  }
+
+  .feed-icon {
+    font-size: 1.3rem;
+  }
+
+  .icon-tooltip {
+    font-size: 0.7rem;
+    padding: 0.3rem 0.6rem;
+    bottom: -35px;
+  }
+}
+
+@media (max-width: 480px) {
+  .bottom-navbar {
+    height: 65px;
+    padding: 0.5rem 0;
+  }
+
+  .icon {
+    font-size: 1.4rem;
+  }
+
+  .nav-icon {
+    padding: 0.5rem;
+  }
+
+  .feed-dropdown {
+    padding: 0.3rem;
+    gap: 0.3rem;
+  }
+
+  .feed-option {
+    padding: 0.5rem;
+  }
+
+  .feed-icon {
+    font-size: 1.2rem;
+  }
+}
+
+
+.feed-trigger,
+.feed-option {
+  outline: none;
+}
+
+.feed-trigger:focus,
+.feed-trigger:active {
+  background: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
+}

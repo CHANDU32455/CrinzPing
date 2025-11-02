@@ -1,0 +1,1171 @@
+import json
+import boto3
+from decimal import Decimal
+from boto3.dynamodb.conditions import Key
+from botocore.exceptions import ClientError
+import time
+import base64
+from datetime import datetime
+
+# --- AWS resources ---
+dynamodb = boto3.resource("dynamodb")
+s3 = boto3.client("s3")
+
+CRINZ_TABLE = dynamodb.Table("CrinzMessages")
+CONTENT_TABLE = dynamodb.Table("CrinzContent")
+FOLLOWS_TABLE = dynamodb.Table("Follows")
+
+BUCKET_CONTENT = "crinzcontent"
+SIGNED_URL_EXPIRATION = 3600
+FOLLOW_BATCH_SIZE = 10
+PER_USER_CRINZ_LIMIT = 5
+PER_USER_POST_LIMIT = 5
+PER_USER_REEL_LIMIT = 5
+
+# --- Helpers ---
+def convert_decimal(obj):
+    if isinstance(obj, list):
+        return [convert_decimal(i) for i in obj]
+    elif isinstance(obj, dict):
+        return {k: convert_decimal(v) for k, v in obj.items()}
+    elif isinstance(obj, Decimal):
+        return int(obj) if obj % 1 == 0 else float(obj)
+    return obj
+
+def get_signed_url(bucket, key):
+    if not key:
+        return ""
+    try:
+        return s3.generate_presigned_url(
+            'get_object', Params={'Bucket': bucket, 'Key': key}, ExpiresIn=SIGNED_URL_EXPIRATION
+        )
+    except ClientError:
+        return ""
+
+def decode_last_key(last_key):
+    if not last_key:
+        return None
+    try:
+        decoded = base64.b64decode(last_key).decode('utf-8')
+        return json.loads(decoded)
+    except:
+        return None
+
+def encode_last_key(last_key_dict):
+    if not last_key_dict:
+        return None
+    try:
+        json_str = json.dumps(last_key_dict)
+        return base64.b64encode(json_str.encode('utf-8')).decode('utf-8')
+    except:
+        return None
+
+# --- Fetch followees batch ---
+def batch_get_followees(user_id, start_after=None, limit=FOLLOW_BATCH_SIZE):
+    try:
+        key_condition = Key("userId").eq(user_id) & Key("relationType#targetId").begins_with("following#")
+        kwargs = {"KeyConditionExpression": key_condition, "Limit": limit}
+        if start_after:
+            kwargs["ExclusiveStartKey"] = start_after
+        resp = FOLLOWS_TABLE.query(**kwargs)
+        followees = [item["relationType#targetId"].split("#")[1] for item in resp.get("Items", [])]
+        last_key = resp.get("LastEvaluatedKey")
+        return followees, last_key
+    except Exception as e:
+        print(f"Error fetching followees: {e}")
+        return [], None
+
+# --- Fetch user content ---
+def fetch_user_content(uid):
+    reels, posts = [], []
+    try:
+        resp = CONTENT_TABLE.query(
+            KeyConditionExpression=Key("pk").eq(f"USER#{uid}"),
+            Limit=PER_USER_POST_LIMIT + PER_USER_REEL_LIMIT,
+            ScanIndexForward=False
+        )
+        for item in resp.get("Items", []):
+            files = [{"type": f.get("type"), "fileName": f.get("fileName"), "url": get_signed_url(BUCKET_CONTENT, f.get("s3Key"))} 
+                     for f in item.get("files", []) if f.get("s3Key")]
+            entry = {
+                "id": item.get("postId"),
+                "type": "reel" if item.get("type") == "crinzpostsreels" else "post",
+                "userId": uid,
+                "content": item.get("caption"),
+                "tags": item.get("tags", []),
+                "timestamp": int(item.get("timestamp", time.time() * 1000)),
+                "likeCount": int(item.get("likes", 0)),
+                "commentCount": int(item.get("comments", 0)),
+                "files": files
+            }
+            if entry["type"] == "reel":
+                reels.append(entry)
+            else:
+                posts.append(entry)
+        reels = reels[:PER_USER_REEL_LIMIT]
+        posts = posts[:PER_USER_POST_LIMIT]
+    except Exception as e:
+        print(f"Error fetching user content for {uid}: {e}")
+    return posts + reels
+
+# --- Fetch crinz messages ---
+def fetch_crinz_messages(uid):
+    items = []
+    try:
+        resp = CRINZ_TABLE.query(
+            IndexName="userId-index",
+            KeyConditionExpression=Key("userId").eq(uid),
+            Limit=PER_USER_CRINZ_LIMIT,
+            ScanIndexForward=False
+        )
+        for item in resp.get("Items", []):
+            ts = item.get("timestamp")
+            try:
+                timestamp = int(ts) if ts else int(time.time() * 1000)
+            except:
+                timestamp = int(datetime.fromisoformat(ts).timestamp() * 1000) if ts else int(time.time() * 1000)
+            crinz_item = {
+                "id": item.get("crinzId", f"crinz-{uid}-{timestamp}"),
+                "type": "crinz_message",
+                "userId": uid,
+                "userName": item.get("userName", "Unknown"),
+                "content": item.get("message", ""),
+                "tags": item.get("tags", []),
+                "likeCount": int(item.get("likeCount", 0)),
+                "commentCount": int(item.get("commentCount", 0)),
+                "timestamp": timestamp,
+                "files": []
+            }
+            if crinz_item["content"]:
+                items.append(crinz_item)
+    except Exception as e:
+        print(f"Error fetching crinz messages for {uid}: {e}")
+    return items
+
+# --- Lambda handler ---
+def lambda_handler(event, context):
+    try:
+        body = json.loads(event.get("body") or "{}")
+        limit = int(body.get("limit", 15))
+        last_key = body.get("lastKey")
+
+        claims = event.get("requestContext", {}).get("authorizer", {}).get("jwt", {}).get("claims", {})
+        user_id = claims.get("sub")
+        if not user_id:
+            return {"statusCode": 401, "body": json.dumps({"error": "Unauthorized"})}
+
+        decoded_last_key = decode_last_key(last_key)
+        processed_users = decoded_last_key.get("processedUsers", []) if decoded_last_key else []
+        last_follow_key = decoded_last_key.get("followLastKey") if decoded_last_key else None
+        seen_ids = set(decoded_last_key.get("seenIds", [])) if decoded_last_key else set()
+        self_content_added = decoded_last_key.get("selfContentAdded", False) if decoded_last_key else False
+
+        feed_items = []
+
+        # --- Step 1: fetch followees batch ---
+        followees_batch, new_follow_key = batch_get_followees(user_id, start_after=last_follow_key)
+        for uid in followees_batch:
+            if uid in processed_users:
+                continue
+            user_items = fetch_user_content(uid) + fetch_crinz_messages(uid)
+            for item in user_items:
+                if item["id"] not in seen_ids:
+                    feed_items.append(item)
+                    seen_ids.add(item["id"])
+            processed_users.append(uid)
+            if len(feed_items) >= limit:
+                break
+
+        # --- Step 2: fetch self content if feed not full and not already added ---
+        if len(feed_items) < limit and not self_content_added:
+            user_items = fetch_user_content(user_id) + fetch_crinz_messages(user_id)
+            for item in user_items:
+                if item["id"] not in seen_ids:
+                    feed_items.append(item)
+                    seen_ids.add(item["id"])
+            self_content_added = True
+
+        # --- Sort and trim ---
+        feed_items.sort(key=lambda x: x.get("timestamp", 0), reverse=True)
+        feed_items = feed_items[:limit]
+
+        # --- Prepare next lastKey ---
+        next_last_key = encode_last_key({
+            "processedUsers": processed_users,
+            "followLastKey": new_follow_key,
+            "seenIds": list(seen_ids),
+            "selfContentAdded": self_content_added
+        }) if feed_items else None
+
+        # --- Determine hasMore ---
+        has_more = bool(new_follow_key) or (not self_content_added)
+
+        return {
+            "statusCode": 200,
+            "body": json.dumps({
+                "feedItems": convert_decimal(feed_items),
+                "lastKey": next_last_key,
+                "hasMore": has_more
+            }),
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+            }
+        }
+
+    except Exception as e:
+        print(f"Error in lambda handler: {str(e)}")
+        return {
+            "statusCode": 500,
+            "body": json.dumps({"error": str(e)}),
+            "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"}
+        }
+
+
+
+
+
+
+
+
+
+
+
+==================================================================================================================================
+
+
+
+
+
+
+
+
+
+
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { usePersonalizedData } from "./usePersonalizedData";
+
+// Custom hook for intersection observer (viewport detection)
+const useInViewport = (options = {}) => {
+  const [isInViewport, setIsInViewport] = useState(false);
+  const [hasBeenInViewport, setHasBeenInViewport] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(([entry]) => {
+      const nowInViewport = entry.isIntersecting;
+      setIsInViewport(nowInViewport);
+
+      if (nowInViewport && !hasBeenInViewport) {
+        setHasBeenInViewport(true);
+      }
+    }, {
+      threshold: 0.5,
+      rootMargin: "0px",
+      ...options
+    });
+
+    if (ref.current) {
+      observer.observe(ref.current);
+    }
+
+    return () => {
+      if (ref.current) {
+        observer.unobserve(ref.current);
+      }
+    };
+  }, [options, hasBeenInViewport]);
+
+  return { ref, isInViewport, hasBeenInViewport };
+};
+
+// Audio player hook
+const useAudioPlayer = () => {
+  const audioInstances = useRef<Map<string, HTMLAudioElement>>(new Map());
+
+  const playAudio = useCallback((id: string, audioUrl: string) => {
+    stopAllAudio();
+
+    let audio = audioInstances.current.get(id);
+    if (!audio) {
+      audio = new Audio(audioUrl);
+      audio.volume = 0.7;
+      audioInstances.current.set(id, audio);
+    }
+
+    audio.play().catch((e) => console.warn("Audio play failed:", e));
+  }, []);
+
+  const stopAudio = useCallback((id: string) => {
+    const audio = audioInstances.current.get(id);
+    if (audio) {
+      audio.pause();
+      audio.currentTime = 0;
+    }
+  }, []);
+
+  const stopAllAudio = useCallback(() => {
+    audioInstances.current.forEach((audio) => {
+      audio.pause();
+      audio.currentTime = 0;
+    });
+  }, []);
+
+  return { playAudio, stopAudio, stopAllAudio };
+};
+
+// Video player hook - FIXED INFINITE LOOP
+const useVideoPlayer = () => {
+  const videoRefs = useRef<Map<string, HTMLVideoElement>>(new Map());
+  const mutedStates = useRef<Map<string, boolean>>(new Map());
+  const playStates = useRef<Map<string, boolean>>(new Map());
+
+  const registerVideo = useCallback((id: string, video: HTMLVideoElement | null) => {
+    if (video) {
+      videoRefs.current.set(id, video);
+      if (!mutedStates.current.has(id)) {
+        mutedStates.current.set(id, false);
+      }
+      if (!playStates.current.has(id)) {
+        playStates.current.set(id, false);
+      }
+    } else {
+      videoRefs.current.delete(id);
+    }
+  }, []);
+
+  const playVideo = useCallback((id: string) => {
+    const video = videoRefs.current.get(id);
+    if (video) {
+      const isMuted = mutedStates.current.get(id) ?? false;
+      video.muted = isMuted;
+      video.play().catch((e) => {
+        if (e.name !== 'AbortError') {
+          console.warn("Video play failed:", e);
+        }
+      });
+      playStates.current.set(id, true);
+    }
+  }, []);
+
+  const pauseVideo = useCallback((id: string) => {
+    const video = videoRefs.current.get(id);
+    if (video) {
+      video.pause();
+      playStates.current.set(id, false);
+    }
+  }, []);
+
+  const toggleMute = useCallback((id: string) => {
+    const video = videoRefs.current.get(id);
+    if (video) {
+      const currentlyMuted = mutedStates.current.get(id) ?? false;
+      const newMutedState = !currentlyMuted;
+
+      video.muted = newMutedState;
+      mutedStates.current.set(id, newMutedState);
+
+      return newMutedState;
+    }
+    return false;
+  }, []);
+
+  const isMuted = useCallback((id: string) => {
+    return mutedStates.current.get(id) ?? false;
+  }, []);
+
+  const isPlaying = useCallback((id: string) => {
+    return playStates.current.get(id) ?? false;
+  }, []);
+
+  // Return stable references
+  return useMemo(() => ({
+    registerVideo,
+    playVideo,
+    pauseVideo,
+    toggleMute,
+    isMuted,
+    isPlaying
+  }), [registerVideo, playVideo, pauseVideo, toggleMute, isMuted, isPlaying]);
+};
+
+// Global media manager
+const useMediaManager = () => {
+  const { stopAllAudio } = useAudioPlayer();
+  const { pauseVideo } = useVideoPlayer();
+  const [activeMedia, setActiveMedia] = useState<Set<string>>(new Set());
+
+  const activateMedia = useCallback((id: string) => {
+    setActiveMedia(prev => new Set(prev).add(id));
+  }, []);
+
+  const deactivateMedia = useCallback((id: string) => {
+    setActiveMedia(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(id);
+      return newSet;
+    });
+    pauseVideo(id);
+  }, [pauseVideo]);
+
+  const stopAllMedia = useCallback(() => {
+    stopAllAudio();
+    activeMedia.forEach(id => pauseVideo(id));
+    setActiveMedia(new Set());
+  }, [activeMedia, pauseVideo, stopAllAudio]);
+
+  return {
+    activeMedia,
+    activateMedia,
+    deactivateMedia,
+    stopAllMedia
+  };
+};
+
+// Image Carousel Component
+const ImageCarousel = ({ images }: { images: Array<{ url: string; type: string }> }) => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  const nextImage = () => {
+    setCurrentIndex((prev) => (prev + 1) % images.length);
+  };
+
+  const prevImage = () => {
+    setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
+  };
+
+  if (images.length === 0) return null;
+
+  return (
+    <div className="relative mb-4 rounded-xl overflow-hidden bg-gray-800">
+      <div className="h-64 md:h-80">
+        <img
+          src={images[currentIndex].url}
+          alt={`Post image ${currentIndex + 1}`}
+          className="w-full h-full object-contain bg-black"
+          loading="lazy"
+        />
+      </div>
+
+      {images.length > 1 && (
+        <>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              prevImage();
+            }}
+            className="absolute left-3 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-black bg-opacity-60 rounded-full flex items-center justify-center text-white hover:bg-opacity-80 transition-all backdrop-blur-sm"
+            aria-label="Previous image"
+          >
+            ‹
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              nextImage();
+            }}
+            className="absolute right-3 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-black bg-opacity-60 rounded-full flex items-center justify-center text-white hover:bg-opacity-80 transition-all backdrop-blur-sm"
+            aria-label="Next image"
+          >
+            ›
+          </button>
+        </>
+      )}
+
+      {images.length > 1 && (
+        <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 flex gap-2">
+          {images.map((_, index) => (
+            <button
+              key={index}
+              onClick={(e) => {
+                e.stopPropagation();
+                setCurrentIndex(index);
+              }}
+              className={`w-3 h-3 rounded-full transition-all ${index === currentIndex
+                  ? 'bg-white scale-110'
+                  : 'bg-white bg-opacity-50 hover:bg-opacity-70'
+                }`}
+              aria-label={`Go to image ${index + 1}`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Engagement Buttons Component
+const EngagementButtons = ({ item, onLike, onShare, onComment }: {
+  item: any;
+  onLike: () => void;
+  onShare: () => void;
+  onComment: () => void;
+}) => {
+  const [liked, setLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(item.likeCount || 0);
+
+  const handleLike = () => {
+    setLiked(!liked);
+    setLikeCount((prev: number) => liked ? prev - 1 : prev + 1);
+    onLike();
+  };
+
+  return (
+    <div className="flex items-center justify-between text-gray-400 text-sm mt-4 pt-4 border-t border-gray-700">
+      <div className="flex items-center gap-4 md:gap-6">
+        <button
+          onClick={handleLike}
+          className="flex items-center gap-2 hover:text-red-400 transition-colors"
+          aria-label={liked ? "Unlike" : "Like"}
+        >
+          <span className={`text-lg ${liked ? 'text-red-500' : ''}`}>
+            {liked ? '❤️' : '🤍'}
+          </span>
+          <span>{likeCount}</span>
+        </button>
+
+        <button
+          onClick={onComment}
+          className="flex items-center gap-2 hover:text-blue-400 transition-colors"
+          aria-label="Comment"
+        >
+          <span className="text-lg">💬</span>
+          <span>{item.commentCount || 0}</span>
+        </button>
+
+        <button
+          onClick={onShare}
+          className="flex items-center gap-2 hover:text-green-400 transition-colors"
+          aria-label="Share"
+        >
+          <span className="text-lg">↗️</span>
+          <span>Share</span>
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// Reel Component - FIXED INFINITE LOOP
+const ReelItem = ({ item }: { item: any }) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const { ref, isInViewport } = useInViewport({ threshold: 0.7 });
+  const { registerVideo, playVideo, pauseVideo, toggleMute, isMuted, isPlaying } = useVideoPlayer();
+  const videoFile = item.files?.find((f: any) => f.type.startsWith('video/'));
+  const thumbnailFile = item.files?.find((f: any) => f.type.startsWith('image/'));
+  const [isVideoMuted, setIsVideoMuted] = useState(false);
+  const [showPlayButton, setShowPlayButton] = useState(false);
+
+  useEffect(() => {
+    if (videoRef.current) {
+      registerVideo(item.id, videoRef.current);
+      setIsVideoMuted(isMuted(item.id));     // Get initial muted state once
+    }
+  }, [item.id, registerVideo]);
+
+  // Add event listeners for play/pause1
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const handlePlay = () => setShowPlayButton(false);
+    const handlePause = () => setShowPlayButton(true);
+    const handleLoadedData = () => {
+      setShowPlayButton(true);
+    };
+
+    video.addEventListener('play', handlePlay);
+    video.addEventListener('pause', handlePause);
+    video.addEventListener('loadeddata', handleLoadedData);
+
+    return () => {
+      video.removeEventListener('play', handlePlay);
+      video.removeEventListener('pause', handlePause);
+      video.removeEventListener('loadeddata', handleLoadedData);
+    };
+  }, []);
+
+  // Handle viewport changes - FIXED: Proper dependencies
+  useEffect(() => {
+    if (isInViewport && videoFile) {
+      playVideo(item.id);
+    } else {
+      pauseVideo(item.id);
+    }
+  }, [isInViewport, videoFile, item.id, playVideo, pauseVideo]);
+
+  // Handle mute toggle
+  const handleMuteToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newMutedState = toggleMute(item.id);
+    setIsVideoMuted(newMutedState);
+  };
+
+  // Handle manual play/pause
+  const handleVideoToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (isPlaying(item.id)) {
+      pauseVideo(item.id);
+    } else {
+      playVideo(item.id);
+    }
+  };
+
+  const handleLike = () => console.log('Liked reel:', item.id);
+  const handleShare = () => console.log('Share reel:', item.id);
+  const handleComment = () => console.log('Comment on reel:', item.id);
+
+  return (
+    <div
+      ref={ref}
+      className="bg-gray-900 border border-gray-700 rounded-2xl p-4 md:p-6 w-full hover:border-purple-500 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-xl"
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full flex items-center justify-center shadow-md">
+            <span className="text-white text-sm font-bold">REEL</span>
+          </div>
+          <div>
+            <p className="text-white font-semibold text-base">Developer Reel</p>
+            <p className="text-gray-400 text-sm">
+              {new Date(item.timestamp).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric'
+              })}
+            </p>
+          </div>
+        </div>
+
+        <span className="px-3 py-1 bg-purple-900 bg-opacity-50 rounded-full text-xs font-medium border border-purple-700">
+          REEL
+        </span>
+      </div>
+
+      {/* Video Container with Dynamic Height */}
+      {videoFile && (
+        <div className="relative mb-4 rounded-2xl overflow-hidden bg-gradient-to-br from-purple-900/20 to-pink-900/20 border border-purple-700/30">
+          {/* Gradient Border Effect */}
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-2xl pointer-events-none"></div>
+
+          <div className="relative">
+            <video
+              ref={videoRef}
+              src={videoFile.url}
+              poster={thumbnailFile?.url}
+              muted={isVideoMuted}
+              loop
+              playsInline
+              className="w-full rounded-xl object-cover bg-black shadow-2xl transition-all duration-500 hover:scale-[1.02]"
+              style={{
+                maxHeight: '70vh',
+                minHeight: '400px'
+              }}
+              onClick={handleVideoToggle}
+            />
+
+            {/* Play/Pause Overlay Button */}
+            {showPlayButton && (
+              <button
+                onClick={handleVideoToggle}
+                className="absolute inset-0 w-full h-full flex items-center justify-center bg-black/40 backdrop-blur-sm transition-all duration-300 hover:bg-black/30"
+                aria-label={isPlaying(item.id) ? "Pause video" : "Play video"}
+              >
+                <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-md border border-white/30 hover:scale-110 transition-transform">
+                  <span className="text-white text-3xl">
+                    {isPlaying(item.id) ? '⏸️' : '▶️'}
+                  </span>
+                </div>
+              </button>
+            )}
+          </div>
+
+          {/* Floating Controls */}
+          <div className="absolute bottom-4 right-4 flex gap-2">
+            {/* Play/Pause Button */}
+            <button
+              onClick={handleVideoToggle}
+              className="w-12 h-12 bg-black/60 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-black/80 transition-all duration-300 hover:scale-110 border border-white/20"
+              aria-label={isPlaying(item.id) ? "Pause video" : "Play video"}
+            >
+              <span className="text-white text-xl">
+                {isPlaying(item.id) ? '⏸️' : '▶️'}
+              </span>
+            </button>
+
+            {/* Mute Button */}
+            <button
+              onClick={handleMuteToggle}
+              className="w-12 h-12 bg-black/60 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-black/80 transition-all duration-300 hover:scale-110 border border-white/20"
+              aria-label={isVideoMuted ? "Unmute video" : "Mute video"}
+            >
+              <span className="text-white text-xl">
+                {isVideoMuted ? '🔇' : '🔊'}
+              </span>
+            </button>
+          </div>
+
+          {/* Bottom Gradient Overlay */}
+          <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-black/60 to-transparent pointer-events-none"></div>
+        </div>
+      )}
+
+      {/* Content */}
+      {item.content && (
+        <p className="text-gray-200 text-base leading-relaxed">{item.content}</p>
+      )}
+
+      {/* Tags */}
+      {item.tags && item.tags.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {item.tags.slice(0, 4).map((tag: string, index: number) => (
+            <span
+              key={index}
+              className="px-3 py-2 bg-gradient-to-r from-purple-900/50 to-pink-900/50 text-purple-300 text-sm rounded-lg border border-purple-700/30 hover:border-purple-500/50 transition-all duration-300 hover:scale-105"
+            >
+              #{tag}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Enhanced Engagement Buttons */}
+      <EngagementButtons
+        item={item}
+        onLike={handleLike}
+        onShare={handleShare}
+        onComment={handleComment}
+      />
+    </div>
+  );
+};
+
+// Post Component
+const PostItem = ({ item }: { item: any }) => {
+  const { playAudio, stopAudio } = useAudioPlayer();
+  const { ref, isInViewport } = useInViewport({ threshold: 0.7 });
+  const audioFile = item.files?.find((f: any) => f.type.startsWith('audio/'));
+  const imageFiles = item.files?.filter((f: any) => f.type.startsWith('image/')) || [];
+
+  useEffect(() => {
+    if (isInViewport && audioFile) {
+      playAudio(item.id, audioFile.url);
+    } else {
+      stopAudio(item.id);
+    }
+  }, [isInViewport, audioFile, item.id, playAudio, stopAudio]);
+
+  const handleLike = () => console.log('Liked post:', item.id);
+  const handleShare = () => console.log('Share post:', item.id);
+  const handleComment = () => console.log('Comment on post:', item.id);
+
+  return (
+    <div
+      ref={ref}
+      className="bg-gray-900 border border-gray-700 rounded-2xl p-4 md:p-6 w-full hover:border-blue-500 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-xl"
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-md">
+            <span className="text-white text-sm font-bold">DEV</span>
+          </div>
+          <div>
+            <p className="text-white font-semibold text-base">Developer</p>
+            <p className="text-gray-400 text-sm">
+              {new Date(item.timestamp).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric'
+              })}
+            </p>
+          </div>
+        </div>
+
+        <span className="px-3 py-1 bg-blue-900 bg-opacity-50 rounded-full text-xs font-medium border border-blue-700">
+          POST
+        </span>
+      </div>
+
+      {/* Content */}
+      {item.content && (
+        <p className="text-gray-200 text-base mb-4 leading-relaxed">{item.content}</p>
+      )}
+
+      {/* Tags */}
+      {item.tags && item.tags.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {item.tags.slice(0, 4).map((tag: string, index: number) => (
+            <span
+              key={index}
+              className="px-3 py-1 bg-gray-800 text-blue-400 text-sm rounded-full"
+            >
+              #{tag}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Images */}
+      <ImageCarousel images={imageFiles} />
+
+      {/* Audio Indicator */}
+      {audioFile && (
+        <div className="flex items-center gap-3 text-green-400 text-sm mb-3">
+          <div className={`w-3 h-3 rounded-full ${isInViewport ? 'bg-green-400 animate-pulse' : 'bg-green-600'}`} />
+          <span className="font-medium">
+            {isInViewport ? '🎵 Playing...' : '🔊 Audio'}
+          </span>
+        </div>
+      )}
+
+      {/* Engagement Buttons */}
+      <EngagementButtons
+        item={item}
+        onLike={handleLike}
+        onShare={handleShare}
+        onComment={handleComment}
+      />
+    </div>
+  );
+};
+
+// Crinz Message Component
+const CrinzMessageItem = ({ item }: { item: any }) => {
+  const { ref } = useInViewport();
+
+  const handleLike = () => console.log('Liked message:', item.id);
+  const handleShare = () => console.log('Share message:', item.id);
+  const handleComment = () => console.log('Comment on message:', item.id);
+
+  return (
+    <div
+      ref={ref}
+      className="bg-gradient-to-r from-cyan-900 to-blue-900 border border-cyan-700 rounded-2xl p-4 md:p-6 w-full shadow-lg"
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-full flex items-center justify-center shadow-md">
+            <span className="text-white text-sm font-bold">CRZ</span>
+          </div>
+          <div>
+            <p className="text-white font-semibold text-base">{item.userName || 'Anonymous'}</p>
+            <p className="text-cyan-300 text-sm">
+              {new Date(item.timestamp).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric'
+              })}
+            </p>
+          </div>
+        </div>
+
+        <span className="px-3 py-1 bg-cyan-800 bg-opacity-50 rounded-full text-xs font-medium border border-cyan-600">
+          CRINZ
+        </span>
+      </div>
+
+      {/* Content */}
+      <p className="text-white text-base mb-4 leading-relaxed italic">"{item.content}"</p>
+
+      {/* Tags */}
+      {item.tags && item.tags.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-3">
+          {item.tags.map((tag: string, index: number) => (
+            <span
+              key={index}
+              className="px-3 py-1 bg-cyan-800 bg-opacity-50 text-cyan-300 text-sm rounded-full"
+            >
+              #{tag}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Engagement Buttons */}
+      <EngagementButtons
+        item={item}
+        onLike={handleLike}
+        onShare={handleShare}
+        onComment={handleComment}
+      />
+    </div>
+  );
+};
+
+// Utility function to shuffle array
+const shuffleArray = <T,>(array: T[]): T[] => {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
+
+// Main Feed Component
+export const PersonalizedFeed = () => {
+  const { content, loading, hasMore, fetchContent } = usePersonalizedData();
+  const { stopAllMedia } = useMediaManager();
+  const [shuffledContent, setShuffledContent] = useState<any[]>([]);
+
+  // Shuffle content when new content is loaded
+  useEffect(() => {
+    if (content.length > 0) {
+      setShuffledContent(shuffleArray(content));
+    }
+  }, [content]);
+
+  const handleLoadMore = () => {
+    if (hasMore && !loading) {
+      fetchContent(10);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      stopAllMedia();
+    };
+  }, [stopAllMedia]);
+
+  if (loading && shuffledContent.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-950 p-4 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-400 text-lg">Loading your developer feed...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-950 md:py-8 md:px-4">
+      {/* Feed - Vertical Stack */}
+      <div className="max-w-2xl mx-auto space-y-6 md:space-y-8 px-2">
+        {shuffledContent.map((item) => (
+          <div key={item.id}>
+            {item.type === 'post' && <PostItem item={item} />}
+            {item.type === 'reel' && <ReelItem item={item} />}
+            {item.type === 'crinz_message' && <CrinzMessageItem item={item} />}
+          </div>
+        ))}
+
+        {/* Load More */}
+        {hasMore && (
+          <div className="flex justify-center mt-8 md:mt-12">
+            <button
+              onClick={handleLoadMore}
+              disabled={loading}
+              className="px-6 py-3 md:px-8 md:py-4 bg-gray-800 hover:bg-gray-700 disabled:bg-gray-900 text-white rounded-xl font-medium transition-all duration-300 shadow-lg hover:shadow-xl disabled:cursor-not-allowed"
+            >
+              {loading ? '⏳ Loading...' : '📥 Load More'}
+            </button>
+          </div>
+        )}
+
+        {/* No More Content */}
+        {!hasMore && shuffledContent.length > 0 && (
+          <div className="text-center mt-8 md:mt-12 py-6 md:py-8 border-t border-gray-800">
+            <p className="text-gray-400 text-base md:text-lg">🎉 You've reached the end of your feed!</p>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {shuffledContent.length === 0 && !loading && (
+          <div className="text-center py-12 md:py-16">
+            <div className="text-gray-400 text-6xl md:text-8xl mb-4 md:mb-6">📱</div>
+            <h3 className="text-xl md:text-2xl font-semibold text-white mb-2 md:mb-3">No content yet</h3>
+            <p className="text-gray-400 text-base md:text-lg">Your personalized feed will appear here soon</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default PersonalizedFeed;
+
+
+
+
+
+
+
+
+
+
+
+=======================================================================================================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+import { useState, useCallback, useEffect, useRef } from "react";
+import { useAuth } from "react-oidc-context";
+
+export interface FeedItem {
+  id: string;
+  type: "reel" | "post" | "crinz_message";
+  userId: string;
+  content?: string;
+  tags?: string[];
+  timestamp: number;
+  likeCount?: number;
+  commentCount?: number;
+  files?: Array<{ type: string; fileName: string; url: string }>;
+}
+
+const CACHE_KEY = "personalized_feed_cache";
+
+export const usePersonalizedData = () => {
+  const { user } = useAuth();
+  const [content, setContent] = useState<FeedItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [lastKey, setLastKey] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const hasFetchedRef = useRef(false);
+
+  // Save to cache
+  const saveToCache = useCallback((data: {
+    content: FeedItem[];
+    lastKey: string | null;
+    hasMore: boolean;
+  }) => {
+    try {
+      localStorage.setItem(CACHE_KEY, JSON.stringify({
+        ...data,
+        timestamp: Date.now()
+      }));
+    } catch (e) {
+      console.warn("Failed to save personalized feed to cache", e);
+    }
+  }, []);
+
+  // Load from cache
+  const loadFromCache = useCallback(() => {
+    try {
+      const cacheStr = localStorage.getItem(CACHE_KEY);
+      if (cacheStr) {
+        const cache = JSON.parse(cacheStr);
+        if (cache.content && Array.isArray(cache.content)) {
+          setContent(cache.content);
+          setLastKey(cache.lastKey || null);
+          setHasMore(cache.hasMore ?? false);
+          return true;
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to load personalized feed from cache", e);
+      localStorage.removeItem(CACHE_KEY);
+    }
+    return false;
+  }, []);
+
+  const fetchContent = useCallback(
+    async (limit = 15, lastKeyParam?: string, isRefresh = false) => {
+      if (!user || loading) return;
+
+      setLoading(true);
+
+      try {
+        const res = await fetch(
+          `${import.meta.env.VITE_BASE_API_URL}/personalization`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${user.access_token}`,
+            },
+            body: JSON.stringify({ limit, lastKey: lastKeyParam }),
+          }
+        );
+
+        const data = await res.json();
+        console.log("personalized data:", data);
+        
+        if (!res.ok) {
+          console.error("API Error:", data);
+          return;
+        }
+
+        if (lastKeyParam && !isRefresh) {
+          // Append for pagination
+          const newContent = [...content, ...data.feedItems];
+          setContent(newContent);
+          saveToCache({
+            content: newContent,
+            lastKey: data.lastKey || null,
+            hasMore: data.hasMore ?? false
+          });
+        } else {
+          // Initial load or refresh
+          setContent(data.feedItems);
+          saveToCache({
+            content: data.feedItems,
+            lastKey: data.lastKey || null,
+            hasMore: data.hasMore ?? false
+          });
+          if (!isRefresh) {
+            hasFetchedRef.current = true;
+          }
+        }
+
+        setLastKey(data.lastKey || null);
+        setHasMore(data.hasMore ?? false);
+      } catch (err) {
+        console.error("Fetch error:", err);
+        // If fetch fails and we have cache, use it
+        if (content.length === 0) {
+          loadFromCache();
+        }
+      } finally {
+        setLoading(false);
+      }
+    },
+    [user, loading, content, saveToCache, loadFromCache]
+  );
+
+  // Initial load - use cache if available
+  useEffect(() => {
+    if (user && !hasFetchedRef.current) {
+      const hasCache = loadFromCache();
+      
+      // Always try to fetch fresh data, but use cache immediately
+      if (hasCache) {
+        // Fetch fresh data in background
+        fetchContent(15, undefined, false).catch(() => {
+          console.log("Background refresh failed, using cached data");
+        });
+      } else {
+        // No cache, wait for fresh data
+        fetchContent();
+      }
+    }
+  }, [user]);
+
+  const refresh = useCallback(() => {
+    return fetchContent(15, undefined, true);
+  }, [fetchContent]);
+
+  return { 
+    content, 
+    loading, 
+    lastKey, 
+    hasMore, 
+    fetchContent,
+    refresh 
+  };   
+};
+
