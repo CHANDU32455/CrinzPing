@@ -16,7 +16,7 @@ interface SyncState {
     syncStatus: 'idle' | 'counting_down' | 'syncing' | 'success' | 'error';
     error: string | null;
 }
-
+const BATCH_PROCESS_API_URL = `${import.meta.env.VITE_BASE_API_URL}/batchProcesser`;
 const SYNC_DEBOUNCE_DELAY = 5000; // 5 seconds debounce
 const SYNC_RETRY_DELAY = 30000; // 30 seconds retry delay
 const MAX_RETRIES = 3;
@@ -172,7 +172,7 @@ class MsgsBatchSyncer {
             this.notifySubscribers();
 
             const actionsToSync = [...this.pendingActions];
-            const response = await fetch(import.meta.env.VITE_BATCH_PROCESS_API_URL, {
+            const response = await fetch(BATCH_PROCESS_API_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -318,17 +318,3 @@ export const useBatchSync = () => {
         pendingCount: batchSyncer.getPendingCount()
     };
 };
-
-//  it is expected to get actions:  like for post by x, unlike for post by x,
-// addedcomment for post y by x at time t with message m,
-// deletedComment for post y by x at time t; -- we dont want what cntent deleted just comment id matters..
-
-// as soon as you recieve any action start debounce and handle pending actions before batch sync,..
-
-// you got an action so you started debounce and you got another action if same type like or comment,..
-// check your pending actions you creaed when you started debounce..
-// if you can neutralize that action do..else after debounce time done,. simply make a call to batch sync.
-// server responds with a success filure response based on that you decide either to remove that stste compleely you created at debounce to store pending actions
-// or let the failed once remain for further internet connected time sync..
-// irrespective of situation the debounce must happen(even on page change, tabswitch or closed app completely..) and fallbacks must happen...
-// thast the entire balamce plan...
