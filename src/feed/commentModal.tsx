@@ -10,8 +10,11 @@ interface CommentModalProps {
   onClose: () => void;
   userName: string;
   postMessage: string;
+  commentCount?: number;
   currentUserId?: string;
   accessToken?: string;
+  contentType?: 'post' | 'reel' | 'crinz_message';
+  contentManager?: any;
   onNewComment: (postId: string, commentText: string) => void;
   onDeleteComment: (postId: string) => void;
 }
@@ -25,6 +28,8 @@ const CommentModal: React.FC<CommentModalProps> = ({
   onClose,
   userName,
   postMessage,
+  commentCount,
+  contentType = 'post', // ✅ DEFAULT to 'post' if not provided
   currentUserId,
   accessToken,
   onNewComment,
@@ -38,16 +43,12 @@ const CommentModal: React.FC<CommentModalProps> = ({
   // Prevent body scrolling when modal is open
   useEffect(() => {
     if (isOpen) {
-      // Save the current scroll position
       const scrollY = window.scrollY;
-
-      // Add styles to prevent scrolling
       document.body.style.position = 'fixed';
       document.body.style.top = `-${scrollY}px`;
       document.body.style.width = '100%';
       document.body.style.overflow = 'hidden';
 
-      // Cleanup function to restore scrolling when modal closes
       return () => {
         document.body.style.position = '';
         document.body.style.top = '';
@@ -58,10 +59,8 @@ const CommentModal: React.FC<CommentModalProps> = ({
     }
   }, [isOpen]);
 
-  // Fetch REAL comments when modal opens
   useEffect(() => {
-    if (isOpen && postId && accessToken) {
-      // Check cache first
+    if (isOpen && postId && accessToken && (commentCount ?? 0) > 0) {
       if (commentsCache.has(postId)) {
         setLocalComments(commentsCache.get(postId)!);
         return;
@@ -70,12 +69,9 @@ const CommentModal: React.FC<CommentModalProps> = ({
       setIsLoading(true);
       setError(null);
 
-      // Use the non-hook comments service
       fetchComments(postId, accessToken)
         .then(({ comments }) => {
           console.log("Fetched LIVE comments for post:", postId, comments);
-
-          // Update cache and local state with REAL data
           commentsCache.set(postId, comments);
           setLocalComments(comments);
         })
@@ -86,22 +82,35 @@ const CommentModal: React.FC<CommentModalProps> = ({
         .finally(() => {
           setIsLoading(false);
         });
+    } else if (isOpen && (commentCount ?? 0) === 0) {
+      setLocalComments([]);
     }
-  }, [isOpen, postId, accessToken]);
+  }, [isOpen, postId, accessToken, commentCount]);
 
   const handleSubmitComment = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newComment.trim() || !currentUserId) return;
 
-    // Send to batch syncer with correct payload structure
+    // ✅ IMPROVED: Proper payload with content type
+    const payload: any = {
+      comment: newComment.trim(),
+      commentId: `temp-${Date.now()}`,
+      contentType: contentType, // ✅ Always include content type
+      isCrinzMessage: contentType === 'crinz_message'
+    };
+
+    console.log('📤 CommentModal - Sending comment with payload:', {
+      postId,
+      contentType,
+      payload
+    });
+
+    // Send to batch syncer with proper content type
     batchSyncer.addAction({
       type: 'add_comment',
       crinzId: postId,
       userId: currentUserId,
-      payload: {
-        comment: newComment.trim(), // Send as 'comment' not 'text'
-        commentId: `temp-${Date.now()}`
-      }
+      payload: payload
     });
 
     // Optimistically add comment to UI
@@ -119,39 +128,43 @@ const CommentModal: React.FC<CommentModalProps> = ({
     const cachedComments = commentsCache.get(postId) || [];
     commentsCache.set(postId, [newCommentObj, ...cachedComments]);
 
-    setNewComment("");
-
-    // Notify parent component
+    // ✅ UPDATED: Notify parent to update comment count
     onNewComment(postId, newComment);
+
+    setNewComment("");
   };
 
-  
+  // ✅ UPDATED: Proper delete comment with content type
   const handleDeleteComment = (commentId: string) => {
-    // Check if this is a temp ID and get the real ID if available
-    const realCommentId = batchSyncer.getRealCommentId(commentId) || commentId;
+    console.log('🗑️ CommentModal - Deleting comment:', commentId);
+    
+    // ✅ FIXED: Use actual contentType from props instead of hardcoding
+    const payload = {
+      commentId: commentId,
+      contentType: contentType, // ✅ Use the actual content type
+      isCrinzMessage: contentType === 'crinz_message'
+    };
 
-    // Send to batch syncer with the real ID
+    console.log('🗑️ CommentModal - Delete payload:', payload);
+
     batchSyncer.addAction({
       type: 'remove_comment',
       crinzId: postId,
       userId: currentUserId!,
-      payload: { commentId: realCommentId }
+      payload: payload
     });
 
-    // Optimistically remove comment from UI
-    const commentToDelete = localComments.find(c => c.commentId === commentId);
+    // Optimistic UI update
     setLocalComments(prev => prev.filter(c => c.commentId !== commentId));
-
+    
     // Update cache
     if (commentsCache.has(postId)) {
       const cachedComments = commentsCache.get(postId)!.filter(c => c.commentId !== commentId);
       commentsCache.set(postId, cachedComments);
     }
 
-    // Notify parent component
-    if (commentToDelete) {
-      onDeleteComment(postId);
-    }
+    // ✅ UPDATED: Notify parent to update comment count
+    onDeleteComment(postId);
   };
 
   const formatTime = useCallback((timestamp: number) => {

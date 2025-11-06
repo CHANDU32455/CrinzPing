@@ -16,9 +16,10 @@ interface SyncState {
     syncStatus: 'idle' | 'counting_down' | 'syncing' | 'success' | 'error';
     error: string | null;
 }
+
 const BATCH_PROCESS_API_URL = `${import.meta.env.VITE_BASE_API_URL}/batchProcesser`;
-const SYNC_DEBOUNCE_DELAY = 5000; // 5 seconds debounce
-const SYNC_RETRY_DELAY = 30000; // 30 seconds retry delay
+const SYNC_DEBOUNCE_DELAY = 5000;
+const SYNC_RETRY_DELAY = 30000;
 const MAX_RETRIES = 3;
 
 class MsgsBatchSyncer {
@@ -29,7 +30,6 @@ class MsgsBatchSyncer {
     private syncStateCallbacks: Array<(state: SyncState) => void> = [];
     private tempToRealIdMap = new Map<string, string>();
 
-
     constructor() {
         this.setupEventListeners();
     }
@@ -38,9 +38,10 @@ class MsgsBatchSyncer {
         return this.tempToRealIdMap.get(tempCommentId);
     }
 
-    // Subscribe to sync state changes
     subscribe(callback: (state: SyncState) => void) {
         this.syncStateCallbacks.push(callback);
+        callback(this.getSyncState());
+        
         return () => {
             this.syncStateCallbacks = this.syncStateCallbacks.filter(cb => cb !== callback);
         };
@@ -52,18 +53,20 @@ class MsgsBatchSyncer {
     }
 
     private getSyncState(): SyncState {
+        const syncTimeoutStart = (this.syncTimeout as any)?._idleStart;
+        const countdown = this.syncTimeout ? Math.ceil((SYNC_DEBOUNCE_DELAY - (Date.now() - syncTimeoutStart)) / 1000) : 0;
+        
         return {
             isSyncing: this.syncTimeout !== null,
             pendingActions: [...this.pendingActions],
-            syncCountdown: this.syncTimeout ? Math.ceil((SYNC_DEBOUNCE_DELAY - (Date.now() - (this.syncTimeout as any)._idleStart)) / 1000) : 0,
-            lastSyncTime: null, // You can track this if needed
-            syncStatus: this.syncTimeout ? 'counting_down' : this.pendingActions.length > 0 ? 'idle' : 'idle',
+            syncCountdown: countdown,
+            lastSyncTime: null,
+            syncStatus: this.syncTimeout ? 'counting_down' : 'idle',
             error: null
         };
     }
 
     private setupEventListeners() {
-        // Network status detection
         window.addEventListener('online', () => {
             this.isOnline = true;
             this.trySync();
@@ -73,7 +76,6 @@ class MsgsBatchSyncer {
             this.isOnline = false;
         });
 
-        // Sync when page is about to close
         window.addEventListener('beforeunload', () => {
             if (this.pendingActions.length > 0) {
                 this.syncNow();
@@ -90,11 +92,21 @@ class MsgsBatchSyncer {
                 timestamp: new Date().toISOString(),
                 payload: {
                     comment: action.payload?.text || action.payload?.comment || '',
-                    commentId: action.payload?.commentId
+                    commentId: action.payload?.commentId,
+                    contentType: action.payload?.contentType,
+                    isCrinzMessage: action.payload?.isCrinzMessage
                 }
             };
         } else {
-            processedAction = { ...action, timestamp: new Date().toISOString() };
+            processedAction = { 
+                ...action, 
+                timestamp: new Date().toISOString(),
+                payload: action.payload ? {
+                    contentType: action.payload.contentType,
+                    isCrinzMessage: action.payload.isCrinzMessage,
+                    commentId: action.payload.commentId // Keep commentId for remove_comment
+                } : undefined
+            };
         }
 
         this.neutralizeActions(processedAction);
@@ -108,7 +120,6 @@ class MsgsBatchSyncer {
         }
 
         this.notifySubscribers();
-
     }
 
     private neutralizeActions(newAction: BatchAction) {
@@ -116,20 +127,17 @@ class MsgsBatchSyncer {
             if (existingAction.userId === newAction.userId &&
                 existingAction.crinzId === newAction.crinzId) {
 
-                // Like ↔ Unlike
                 if ((existingAction.type === 'like' && newAction.type === 'unlike') ||
                     (existingAction.type === 'unlike' && newAction.type === 'like')) {
                     return false;
                 }
 
-                // Comment → Delete same comment
                 if (existingAction.type === 'add_comment' &&
                     newAction.type === 'remove_comment' &&
                     existingAction.payload?.commentId === newAction.payload?.commentId) {
                     return false;
                 }
 
-                // Same action type → keep only latest
                 if (existingAction.type === newAction.type) {
                     if (existingAction.type === 'like' || existingAction.type === 'unlike') {
                         return false;
@@ -139,7 +147,6 @@ class MsgsBatchSyncer {
             return true;
         });
     }
-
 
     private startDebounce() {
         if (this.syncTimeout) {
@@ -172,46 +179,62 @@ class MsgsBatchSyncer {
             this.notifySubscribers();
 
             const actionsToSync = [...this.pendingActions];
+            const userId = JSON.parse(atob(localStorage.getItem('id_token')!.split('.')[1]))["cognito:username"];
+            
+            const payload = {
+                actions: actionsToSync,
+                userId: userId
+            };
+
             const response = await fetch(BATCH_PROCESS_API_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${localStorage.getItem('id_token')}`
                 },
-                body: JSON.stringify({
-                    actions: actionsToSync,
-                    userId: JSON.parse(atob(localStorage.getItem('id_token')!.split('.')[1]))["cognito:username"]
-                })
+                body: JSON.stringify(payload)
             });
 
-            if (!response.ok) throw new Error(`Sync failed: ${response.status}`);
+            if (!response.ok) {
+                throw new Error(`Sync failed: ${response.status}`);
+            }
 
             const result = await response.json();
-
+        
             if (result.success) {
                 const processedActions = result.processed || [];
 
+                let removedCount = 0;
                 processedActions.forEach((processed: any) => {
+                    
                     if (['liked', 'unliked', 'comment_added', 'comment_removed'].includes(processed.status)) {
+                        const beforeCount = this.pendingActions.length;
                         this.pendingActions = this.pendingActions.filter(action =>
                             !(action.crinzId === processed.crinzId && action.type === processed.type)
                         );
+                        const afterCount = this.pendingActions.length;
+                        removedCount += (beforeCount - afterCount);
                     }
 
                     if (processed.status === 'already_liked') {
+                        const beforeCount = this.pendingActions.length;
                         this.pendingActions = this.pendingActions.filter(action =>
                             !(action.crinzId === processed.crinzId && action.type === 'like')
                         );
+                        const afterCount = this.pendingActions.length;
+                        removedCount += (beforeCount - afterCount);
                     }
 
                     if (processed.status === 'not_liked') {
+                        const beforeCount = this.pendingActions.length;
                         this.pendingActions = this.pendingActions.filter(action =>
                             !(action.crinzId === processed.crinzId && action.type === 'unlike')
                         );
+                        const afterCount = this.pendingActions.length;
+                        removedCount += (beforeCount - afterCount);
                     }
 
                     if (processed.status === 'comment_added' && processed.commentId) {
-                        // Find the matching action
                         const matchingAction = this.pendingActions.find(action =>
                             action.type === 'add_comment' &&
                             action.crinzId === processed.crinzId &&
@@ -220,28 +243,29 @@ class MsgsBatchSyncer {
                         );
 
                         if (matchingAction) {
-                            // Store the mapping
                             this.tempToRealIdMap.set(matchingAction.payload.commentId, processed.commentId);
-
-                            // Remove the processed action
                             this.pendingActions = this.pendingActions.filter(action => action !== matchingAction);
+                            removedCount++;
                         }
                     }
 
-                    if (processed.status === 'invalid_comment') {
+                    // Handle content not found errors
+                    if (['post_not_found', 'reel_not_found', 'content_not_found'].includes(processed.status)) {
+                        const beforeCount = this.pendingActions.length;
                         this.pendingActions = this.pendingActions.filter(action =>
-                            !(action.crinzId === processed.crinzId && action.type === 'add_comment')
+                            !(action.crinzId === processed.crinzId && action.type === processed.type)
                         );
+                        const afterCount = this.pendingActions.length;
+                        removedCount += (beforeCount - afterCount);
                     }
                 });
 
                 this.retryCount = 0;
-                console.log('Batch sync successful:', processedActions);
             } else {
                 throw new Error(result.error || 'Sync failed');
             }
         } catch (error) {
-            console.error('Sync error:', error);
+            console.error('❌ BatchSyncer - Sync error:', error);
             this.retryCount++;
             if (this.retryCount < MAX_RETRIES) {
                 setTimeout(() => this.syncNow(), SYNC_RETRY_DELAY * Math.pow(2, this.retryCount - 1));
@@ -251,24 +275,24 @@ class MsgsBatchSyncer {
         }
     }
 
-
     private trySync() {
         if (this.isOnline && this.pendingActions.length > 0) {
             this.syncNow();
         }
     }
 
-    // Get current pending actions count
     getPendingCount(): number {
         return this.pendingActions.length;
     }
 
-    // Force sync (for manual retry)
+    getPendingActions(): BatchAction[] {
+        return [...this.pendingActions];
+    }
+
     forceSync() {
         this.syncNow();
     }
 
-    // Clear all pending actions
     clearPending() {
         this.pendingActions = [];
         if (this.syncTimeout) {
@@ -279,10 +303,8 @@ class MsgsBatchSyncer {
     }
 }
 
-// Singleton instance
 export const batchSyncer = new MsgsBatchSyncer();
 
-// React Hook for using the batch syncer
 export const useBatchSync = () => {
     const [syncState, setSyncState] = useState<SyncState>({
         isSyncing: false,
@@ -310,11 +332,16 @@ export const useBatchSync = () => {
         batchSyncer.clearPending();
     }, []);
 
+    const getPendingActions = useCallback(() => {
+        return batchSyncer.getPendingActions();
+    }, []);
+
     return {
         syncState,
         addAction,
         forceSync,
         clearPending,
+        getPendingActions,
         pendingCount: batchSyncer.getPendingCount()
     };
 };

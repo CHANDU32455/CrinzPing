@@ -51,6 +51,12 @@ export const usePersonalizedData = () => {
   const [hasMore, setHasMore] = useState(true);
   const [metrics, setMetrics] = useState<FeedMetrics | null>(null);
 
+    const updateContentItem = useCallback((contentId: string, updater: (currentItem: any) => any) => {
+    setContent(prev => prev.map(item => 
+      item.id === contentId ? updater(item) : item
+    ));
+  }, []);
+
   const fetchContent = useCallback(async (limit = 15, lastKeyParam?: string, isRefresh = false) => {
     if (!user || loading) return;
 
@@ -120,6 +126,7 @@ export const usePersonalizedData = () => {
     metrics,
     fetchContent,
     refresh,
-    loadMore
+    loadMore,
+    updateContentItem
   };   
 };

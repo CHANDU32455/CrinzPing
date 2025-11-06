@@ -2,27 +2,31 @@ import { useState, useCallback, useEffect } from "react";
 import { usePersonalizedData } from "./usePersonalizedData";
 import { useMediaManager } from "./Parts/useMediaManager";
 import SyncStatusIndicator from "../../utils/SyncStatusIndicator";
-import CentralizedCommentModal from "../../../components/CentralizedCommentModal";
+import CommentModal from "../../commentModal";
 import CentralizedShareModal from "../../../components/CentralizedShareModal";
 import PostTile from "../../../components/PostTile";
 import ReelTile from "../../../components/ReelTile";
 import CrinzTile from "../../../components/CrinzMessageTile";
 import { FeedItemSkeleton } from "./Parts/FeedItemSkeleton";
+import { useAuth } from "react-oidc-context";
+import { contentManager } from "../../../utils/Posts_Reels_Stats_Syncer";
 
 export const PersonalizedFeed = () => {
-  const { content, loading, hasMore, loadMore, metrics } = usePersonalizedData();
+  const auth = useAuth();
+  const userId = auth.user?.profile?.sub;
+  const accessToken = auth.user?.access_token;
+
+  const { content, loading, hasMore, loadMore, metrics, updateContentItem } = usePersonalizedData();
   const { stopAllMedia } = useMediaManager();
 
   // Modal states
   const [commentModal, setCommentModal] = useState<{
     isOpen: boolean;
-    contentId: string;
-    contentType: 'post' | 'reel' | 'crinz_message';
-    content: {
-      userName: string;
-      message: string;
-      timestamp: string;
-    };
+    postId: string;
+    userName: string;
+    postMessage: string;
+    commentCount: number;
+    contentType?: 'post' | 'reel' | 'crinz_message';
   } | null>(null);
 
   const [shareModal, setShareModal] = useState<{
@@ -48,17 +52,21 @@ export const PersonalizedFeed = () => {
     };
   }, [stopAllMedia]);
 
-  // Modal handlers
+  // Handle opening comment modal
   const handleOpenComment = useCallback((item: any) => {
+    console.log('🔍 Opening comment for:', {
+      id: item.id,
+      type: item.type,
+      content: item.content
+    });
+
     setCommentModal({
       isOpen: true,
-      contentId: item.id,
-      contentType: item.type,
-      content: {
-        userName: item.user?.userName || 'Anonymous',
-        message: item.content,
-        timestamp: item.timestamp,
-      },
+      postId: item.id,
+      userName: item.user?.userName || 'Anonymous',
+      postMessage: item.content,
+      commentCount: item.commentCount || 0,
+      contentType: item.type
     });
   }, []);
 
@@ -82,14 +90,68 @@ export const PersonalizedFeed = () => {
     setShareModal(null);
   }, []);
 
-  // Comment callbacks
-  const handleNewComment = useCallback(() => {
-    console.log('New comment added');
-  }, []);
+  const handleNewComment = useCallback((postId: string) => {
+    console.log('✅ Parent: New comment added to post:', postId);
 
-  const handleDeleteComment = useCallback(() => {
-    console.log('Comment deleted');
-  }, []);
+    // Update local content state
+    updateContentItem(postId, (currentItem) => ({
+      ...currentItem,
+      commentCount: (currentItem.commentCount || 0) + 1,
+      comments: (currentItem.comments || 0) + 1 // Handle both field names
+    }));
+
+    // Update content manager stats
+    const currentStats = contentManager.getContentStats(postId);
+    if (currentStats) {
+      contentManager.initializeContentStats(postId, {
+        ...currentStats,
+        commentCount: currentStats.commentCount + 1
+      });
+    }
+  }, [updateContentItem]);
+
+  const handleDeleteComment = useCallback((postId: string) => {
+    console.log('✅ Parent: Comment deleted from post:', postId);
+
+    // Update local content state
+    updateContentItem(postId, (currentItem) => ({
+      ...currentItem,
+      commentCount: Math.max(0, (currentItem.commentCount || 1) - 1),
+      comments: Math.max(0, (currentItem.comments || 1) - 1)
+    }));
+
+    // Update content manager stats
+    const currentStats = contentManager.getContentStats(postId);
+    if (currentStats) {
+      contentManager.initializeContentStats(postId, {
+        ...currentStats,
+        commentCount: Math.max(0, currentStats.commentCount - 1)
+      });
+    }
+  }, [updateContentItem]);
+
+  // ✅ NEW: Handle like updates from child components
+  const handleLikeUpdate = useCallback((contentId: string, newLikeCount: number, isLiked: boolean) => {
+    console.log('✅ Parent: Like updated for:', contentId, 'count:', newLikeCount, 'liked:', isLiked);
+
+    // Update local content state
+    updateContentItem(contentId, (currentItem) => ({
+      ...currentItem,
+      likeCount: newLikeCount,
+      likes: newLikeCount, // Handle both field names
+      isLikedByUser: isLiked
+    }));
+
+    // Update content manager stats
+    const currentStats = contentManager.getContentStats(contentId);
+    if (currentStats) {
+      contentManager.initializeContentStats(contentId, {
+        ...currentStats,
+        likeCount: newLikeCount,
+        isLikedByUser: isLiked
+      });
+    }
+  }, [updateContentItem]);
 
   return (
     <div className="min-h-screen bg-gray-950 py-4 md:py-8">
@@ -108,24 +170,27 @@ export const PersonalizedFeed = () => {
           {content.map((item) => (
             <div key={item.id} className="scroll-m-20">
               {item.type === 'post' && (
-                <PostTile 
-                  item={item} 
+                <PostTile
+                  item={item}
                   onComment={() => handleOpenComment(item)}
                   onShare={() => handleOpenShare(item)}
+                  onLikeUpdate={handleLikeUpdate} // ✅ NEW: Pass like callback
                 />
               )}
               {item.type === 'reel' && (
-                <ReelTile 
-                  item={item} 
+                <ReelTile
+                  item={item}
                   onComment={() => handleOpenComment(item)}
                   onShare={() => handleOpenShare(item)}
+                  onLikeUpdate={handleLikeUpdate} // ✅ NEW: Pass like callback
                 />
               )}
               {item.type === 'crinz_message' && (
-                <CrinzTile 
-                  item={item} 
+                <CrinzTile
+                  item={item}
                   onComment={() => handleOpenComment(item)}
                   onShare={() => handleOpenShare(item)}
+                  onLikeUpdate={handleLikeUpdate} // ✅ NEW: Pass like callback
                 />
               )}
             </div>
@@ -194,19 +259,23 @@ export const PersonalizedFeed = () => {
           )}
         </div>
 
-        {/* Sync Status Indicator */}
-        <SyncStatusIndicator />
+        {/* Sync Status Indicator - Only show in development */}
+        {process.env.NODE_ENV === 'development' && <SyncStatusIndicator />}
 
-        {/* Centralized Modals */}
+        {/* Comment Modal */}
         {commentModal && (
-          <CentralizedCommentModal
+          <CommentModal
+            postId={commentModal.postId}
             isOpen={commentModal.isOpen}
             onClose={handleCloseComment}
-            contentId={commentModal.contentId}
+            userName={commentModal.userName}
+            postMessage={commentModal.postMessage}
+            commentCount={commentModal.commentCount}
             contentType={commentModal.contentType}
-            content={commentModal.content}
-            onNewComment={handleNewComment}
-            onDeleteComment={handleDeleteComment}
+            currentUserId={userId}
+            accessToken={accessToken}
+            onNewComment={handleNewComment} // ✅ UPDATED: Now properly updates parent
+            onDeleteComment={handleDeleteComment} // ✅ UPDATED: Now properly updates parent
           />
         )}
 

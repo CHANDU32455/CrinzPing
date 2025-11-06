@@ -9,9 +9,10 @@ interface PostTileProps {
   item: any;
   onComment: () => void;
   onShare: () => void;
+  onLikeUpdate?: (contentId: string, newLikeCount: number, isLiked: boolean) => void; // ✅ NEW: Like callback
 }
 
-const PostTile: React.FC<PostTileProps> = ({ item, onComment, onShare }) => {
+const PostTile: React.FC<PostTileProps> = ({ item, onComment, onShare, onLikeUpdate }) => {
   const { ref, isInViewport, hasBeenInViewport } = useInViewport({ threshold: 0.7 });
   const { playAudio, stopAudio } = useAudioPlayer();
   const { activateMedia, deactivateMedia } = useMediaManager();
@@ -30,8 +31,9 @@ const PostTile: React.FC<PostTileProps> = ({ item, onComment, onShare }) => {
     }
   }, [isInViewport, audioFile, item.id, playAudio, stopAudio, activateMedia, deactivateMedia]);
 
+  // ✅ UPDATED: Handle like with callback
   const handleLike = React.useCallback(() => {
-    // Handled by EngagementButtons
+    // This will be handled by EngagementButtons with the callback
   }, []);
 
   return (
@@ -94,6 +96,7 @@ const PostTile: React.FC<PostTileProps> = ({ item, onComment, onShare }) => {
         onLike={handleLike}
         onShare={onShare}
         onComment={onComment}
+        onLikeUpdate={onLikeUpdate} // ✅ NEW: Pass like callback
       />
     </div>
   );

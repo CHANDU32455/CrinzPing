@@ -12,6 +12,7 @@ export interface Reel {
   comments: number;
   visibility: string;
   files: { s3Key: string; fileName: string; type: string; presignedUrl: string }[];
+  isLikedByUser?: boolean; // ✅ ADDED: Optional field
 }
 
 export const useReels = (searchTerm?: string) => {
@@ -52,7 +53,11 @@ export const useReels = (searchTerm?: string) => {
           }
         );
 
-        const fetchedReels: Reel[] = res.data.reels || [];
+        const fetchedReels: Reel[] = (res.data.reels || []).map((reel: any) => ({
+          ...reel,
+          isLikedByUser: reel.isLikedByUser || false // ✅ ADDED: Ensure this field exists
+        }));
+        
         console.log("✅ Reels fetched:", fetchedReels);
 
         setReels(prev => append ? [...prev, ...fetchedReels] : fetchedReels);
@@ -102,4 +107,4 @@ export const useReels = (searchTerm?: string) => {
     refresh,
     retry: refresh 
   };
-};  
+};

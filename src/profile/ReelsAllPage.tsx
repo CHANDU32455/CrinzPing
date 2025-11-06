@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import ShareModal from "../feed/tabs/reelsfeed/ShareModal";
+import ShareComponent from "../feed/ShareComponent";
 import CommentModal from "../feed/commentModal";
 
 // Define proper types based on your actual API response
@@ -621,7 +621,7 @@ const ReelsAllPage: React.FC = () => {
       )}
 
       {shareReel && (
-        <ShareModal
+        <ShareComponent
           postId={shareReel.postId}
           userName={shareReel.userId || 'unknown'}
           message={shareReel.caption}

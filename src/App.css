@@ -47,10 +47,6 @@ body {
   overflow-x: hidden;
 }
 
-.content{
- padding: 10px;
-}
-
 /* Container utility */
 .container {
   max-width: var(--max-width);

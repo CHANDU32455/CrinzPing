@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { encodePostData } from "../utils/encodeDecode";
 import "./css/ShareModal.css";
 
 interface ShareComponentProps {
   postId: string;
   userName: string;
   message: string;
-  timestamp: string;
+  timestamp: string | number; // Accept both string and number
   likeCount: number;
   commentCount: number;
   isOpen: boolean;
   onClose: () => void;
+  contentType?: 'post' | 'reel' | 'crinz_message';
+  mediaUrl?: string;
 }
 
 const ShareComponent: React.FC<ShareComponentProps> = ({
@@ -21,15 +22,38 @@ const ShareComponent: React.FC<ShareComponentProps> = ({
   likeCount,
   commentCount,
   isOpen,
-  onClose
+  onClose,
+  contentType = 'post',
+  mediaUrl
 }) => {
   const [isClosing, setIsClosing] = useState(false);
   const [availableApps, setAvailableApps] = useState<string[]>([]);
+  const [isVideoLoaded, setIsVideoLoaded] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
-  const formatTime = useCallback((timestamp: string) => {
+  // Generate direct share URL based on content type
+  const generateShareUrl = useCallback(() => {
+    const baseUrl = window.location.origin;
+
+    switch (contentType) {
+      case 'reel':
+        return `${baseUrl}/shared/reels/${postId}`;
+      case 'crinz_message':
+        return `${baseUrl}/shared/crinz/${postId}`;
+      case 'post':
+      default:
+        return `${baseUrl}/shared/posts/${postId}`;
+    }
+  }, [postId, contentType]);
+
+  const formatTime = useCallback((timestamp: string | number) => {
+    // Convert to Date object - handle both string and number timestamps
+    const postTime = typeof timestamp === 'number'
+      ? new Date(timestamp)
+      : new Date(timestamp);
+
     const now = new Date();
-    const postTime = new Date(timestamp);
     const diffInSeconds = Math.floor((now.getTime() - postTime.getTime()) / 1000);
 
     if (diffInSeconds < 60) return `${diffInSeconds}s ago`;
@@ -42,31 +66,48 @@ const ShareComponent: React.FC<ShareComponentProps> = ({
     const detectShareApps = () => {
       const apps = [];
       if (typeof navigator.share === "function") {
-        apps.push("External Apps", "Copy Link");
+        apps.push("External Apps", "Copy Link", "WhatsApp", "Twitter");
       } else {
-        apps.push("Copy Link", "Email");
+        apps.push("Copy Link", "WhatsApp", "Twitter", "Email", "Telegram");
       }
       setAvailableApps(apps);
     };
     detectShareApps();
   }, []);
 
+  // Handle video loading for reels
+  useEffect(() => {
+    if (contentType === 'reel' && mediaUrl && videoRef.current) {
+      const video = videoRef.current;
+      const handleLoad = () => setIsVideoLoaded(true);
+
+      video.addEventListener('loadeddata', handleLoad);
+      video.src = mediaUrl;
+      video.load();
+
+      return () => {
+        video.removeEventListener('loadeddata', handleLoad);
+      };
+    }
+  }, [contentType, mediaUrl]);
+
   const handleCloseModal = useCallback(() => {
     if (isClosing) return;
-    
+
     setIsClosing(true);
     setTimeout(() => {
       onClose();
+      setIsVideoLoaded(false);
       setIsClosing(false);
-    }, 300); // Match the animation duration
+    }, 300);
   }, [isClosing, onClose]);
 
   const handleCopy = useCallback(async () => {
     try {
-      const encodedData = encodePostData({ id: postId, userName, message, timestamp });
-      const shareUrl = `${window.location.origin}/post/${encodedData}`;
+      const shareUrl = generateShareUrl();
       await navigator.clipboard.writeText(shareUrl);
 
+      // Show success notification
       const notification = document.createElement('div');
       notification.textContent = 'Link copied to clipboard!';
       notification.style.position = 'fixed';
@@ -88,8 +129,9 @@ const ShareComponent: React.FC<ShareComponentProps> = ({
       handleCloseModal();
     } catch (err) {
       console.error('Failed to copy:', err);
+      // Fallback for older browsers
       const textArea = document.createElement('textarea');
-      textArea.value = `${window.location.origin}/post/${encodePostData({ id: postId, userName, message, timestamp })}`;
+      textArea.value = generateShareUrl();
       document.body.appendChild(textArea);
       textArea.select();
       document.execCommand('copy');
@@ -98,39 +140,66 @@ const ShareComponent: React.FC<ShareComponentProps> = ({
       alert('Link copied to clipboard!');
       handleCloseModal();
     }
-  }, [postId, userName, message, timestamp, handleCloseModal]);
+  }, [generateShareUrl, handleCloseModal]);
 
   const handleAppShare = useCallback(async (app: string) => {
-    const encodedData = encodePostData({ id: postId, userName, message, timestamp });
-    const shareUrl = `${window.location.origin}/post/${encodedData}`;
+    const shareUrl = generateShareUrl();
+    const shareText = `Check out this ${contentType} by ${userName}`;
+    const fullMessage = `${message}\n\nLikes: ${likeCount} | Comments: ${commentCount}\n\n${shareUrl}`;
 
     if (app === "Copy Link") {
       handleCopy();
       return;
     }
 
-    if (typeof navigator.share === "function") {
-      try {
-        await navigator.share({
-          title: `Post by ${userName}`,
-          text: `${message} (Likes: ${likeCount}, Comments: ${commentCount})`,
-          url: shareUrl,
-        });
+    // Platform-specific sharing
+    switch (app) {
+      case "WhatsApp":
+        window.open(`https://wa.me/?text=${encodeURIComponent(fullMessage)}`, '_blank');
         handleCloseModal();
-      } catch (err: any) {
-        if (err.name !== 'AbortError') {
-          console.error("Share failed:", err);
+        break;
+
+      case "Twitter":
+        window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(fullMessage)}`, '_blank');
+        handleCloseModal();
+        break;
+
+      case "Telegram":
+        window.open(`https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(message)}`, '_blank');
+        handleCloseModal();
+        break;
+
+      case "Email":
+        window.open(`mailto:?subject=${encodeURIComponent(shareText)}&body=${encodeURIComponent(fullMessage)}`, '_blank');
+        handleCloseModal();
+        break;
+
+      case "External Apps":
+        if (typeof navigator.share === "function") {
+          try {
+            await navigator.share({
+              title: shareText,
+              text: message,
+              url: shareUrl,
+            });
+            handleCloseModal();
+          } catch (err: any) {
+            if (err.name !== 'AbortError') {
+              console.error("Share failed:", err);
+              handleCopy(); // Fallback to copy
+            }
+          }
+        } else {
           handleCopy();
         }
-      }
-    } else if (app === "Email") {
-      window.open(`mailto:?subject=Check out this post by ${userName}&body=${encodeURIComponent(message + '\n\n' + shareUrl)}`);
-      handleCloseModal();
-    } else {
-      handleCopy();
-    }
-  }, [postId, userName, message, timestamp, likeCount, commentCount, handleCopy, handleCloseModal]);
+        break;
 
+      default:
+        handleCopy();
+    }
+  }, [generateShareUrl, contentType, userName, message, likeCount, commentCount, handleCopy, handleCloseModal]);
+
+  // Close modal on escape key and outside click
   useEffect(() => {
     const handleEscapeKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && isOpen && !isClosing) {
@@ -149,7 +218,6 @@ const ShareComponent: React.FC<ShareComponentProps> = ({
     };
   }, [isOpen, isClosing, handleCloseModal]);
 
-  // Close modal when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (modalRef.current && !modalRef.current.contains(event.target as Node) && isOpen && !isClosing) {
@@ -170,16 +238,16 @@ const ShareComponent: React.FC<ShareComponentProps> = ({
 
   return (
     <div className={`share-modal-overlay ${isClosing ? 'closing' : ''}`} onClick={handleCloseModal}>
-      <div 
+      <div
         ref={modalRef}
         className={`share-modal ${isClosing ? 'closing' : ''}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="share-modal-header">
-          <h3>Share Post</h3>
-          <button 
-            className="share-close-button" 
-            onClick={handleCloseModal} 
+          <h3>Share {contentType === 'reel' ? 'Reel' : contentType === 'crinz_message' ? 'Crinz' : 'Post'}</h3>
+          <button
+            className="share-close-button"
+            onClick={handleCloseModal}
             aria-label="Close"
             disabled={isClosing}
           >
@@ -187,15 +255,36 @@ const ShareComponent: React.FC<ShareComponentProps> = ({
           </button>
         </div>
 
-        <div className="share-post-preview">
-          <div className="share-post-author">@{userName}</div>
-          <div className="share-post-content">{message}</div>
-          <div className="share-timestamp">
-            {formatTime(timestamp)}
-          </div>
-          <div className="share-stats">
-            <span>❤️ {likeCount}</span>
-            <span>💬 {commentCount}</span>
+        <div className="share-content-preview">
+          {/* Show video for reels */}
+          {contentType === 'reel' && mediaUrl && (
+            <div className="share-reel-preview">
+              <video
+                ref={videoRef}
+                className="share-reel-video"
+                muted
+                playsInline
+                preload="metadata"
+                style={{ display: isVideoLoaded ? 'block' : 'none' }}
+              />
+              {!isVideoLoaded && (
+                <div className="share-reel-loading">Loading reel preview...</div>
+              )}
+            </div>
+          )}
+
+          <div className="share-post-info">
+            <div className="share-post-author">@{userName}</div>
+            <div className="share-post-content">
+              {message || `Check out this ${contentType}`}
+            </div>
+            <div className="share-timestamp">
+              {formatTime(timestamp)}
+            </div>
+            <div className="share-stats">
+              <span>❤️ {likeCount}</span>
+              <span>💬 {commentCount}</span>
+            </div>
           </div>
         </div>
 
@@ -205,6 +294,7 @@ const ShareComponent: React.FC<ShareComponentProps> = ({
           {availableApps.map(app => (
             <button
               key={app}
+              data-app={app}
               onClick={() => handleAppShare(app)}
               className="share-app-button"
               disabled={isClosing}
@@ -212,6 +302,10 @@ const ShareComponent: React.FC<ShareComponentProps> = ({
               {app}
             </button>
           ))}
+        </div>
+
+        <div className="share-url-preview">
+          <small>Share URL: {generateShareUrl()}</small>
         </div>
       </div>
     </div>

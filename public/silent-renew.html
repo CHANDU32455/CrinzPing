@@ -1,15 +1,19 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Silent Renew</title>
+    <title>Silent Renew</title>
 </head>
 <body>
-  <script>
-    window.addEventListener('load', () => {
-      if (window.parent) {
-        window.parent.postMessage('silent-renew-complete', '*');
-      }
-    });
-  </script>
+    <script>
+        // This page is used for silent token renewal
+        window.addEventListener('DOMContentLoaded', function() {
+            var targetOrigin = window.location.origin;
+            window.opener.postMessage({
+                type: 'silent-renew-success',
+                url: window.location.href
+            }, targetOrigin);
+            window.close();
+        });
+    </script>
 </body>
 </html>

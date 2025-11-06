@@ -75,7 +75,7 @@ export function FloatingActionButton({
       ref={containerRef}
       className="fixed right-4 z-40 flex flex-col items-end gap-4"
       style={{
-        bottom: '60px',
+        bottom: '20px',
         pointerEvents: isOpen ? 'auto' : 'none',
       }}
     >

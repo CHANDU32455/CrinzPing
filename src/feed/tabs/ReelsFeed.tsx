@@ -1,22 +1,39 @@
-
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { useReels, type Reel } from "../../hooks/usereels";
-import "../../css/ReelsFeed.css";
-import ShareModal from "./ShareModal";
-import CommentModal from "./CommentModal";
+import { useReels, type Reel } from "../hooks/usereels";
+import ShareComponent from "../ShareComponent";
+import CommentModal from "../commentModal";
+import { contentManager } from "../../utils/Posts_Reels_Stats_Syncer";
+import { useAuth } from "react-oidc-context";
+import "../css/ReelsFeed.css";
 
 interface LocalReel extends Reel {
   isLiked?: boolean;
+  user?: {
+    userName: string;
+    profilePic: string;
+    tagline: string;
+  };
 }
 
 function ReelsFeed() {
   const navigate = useNavigate();
+  const auth = useAuth();
+  const userId = auth.user?.profile?.sub;
+  const accessToken = auth.user?.access_token;
+
   const { reels, loading, error, hasMore, loadMore, retry } = useReels();
   const [currentPlayingIndex, setCurrentPlayingIndex] = useState<number>(-1);
   const [isManuallyPaused, setIsManuallyPaused] = useState<boolean>(false);
   const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(new Set());
-  const [selectedReel, setSelectedReel] = useState<LocalReel | null>(null);
+  const [commentModal, setCommentModal] = useState<{
+    isOpen: boolean;
+    postId: string;
+    userName: string;
+    postMessage: string;
+    commentCount: number;
+    contentType?: 'post' | 'reel' | 'crinz_message';
+  } | null>(null);
   const [shareReel, setShareReel] = useState<LocalReel | null>(null);
 
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
@@ -26,18 +43,35 @@ function ReelsFeed() {
   // Track muted state for each video individually
   const mutedStatesRef = useRef<boolean[]>([]);
 
-  // Simple local reels with likes
+  // ✅ UPDATED: Use reels directly with proper user data and isLikedByUser
   const [localReels, setLocalReels] = useState<LocalReel[]>([]);
 
   useEffect(() => {
-    setLocalReels(reels.map(reel => ({ ...reel, isLiked: false })));
+    // ✅ Use the reels data as-is since it already has user data and isLikedByUser
+    const updatedReels = reels.map(reel => ({
+      ...reel,
+      isLiked: reel.isLikedByUser || false // Use the isLikedByUser from API
+    }));
+    setLocalReels(updatedReels);
+
+    // Initialize content manager stats for each reel
+    updatedReels.forEach(reel => {
+      contentManager.initializeContentStats(reel.postId, {
+        likeCount: reel.likes,
+        commentCount: reel.comments,
+        shareCount: 0,
+        viewCount: 0,
+        isLikedByUser: reel.isLikedByUser || false
+      });
+    });
+
     // Initialize muted states for all reels
     mutedStatesRef.current = new Array(reels.length).fill(false);
   }, [reels]);
 
   // Handle modals
   useEffect(() => {
-    if (selectedReel || shareReel) {
+    if (commentModal || shareReel) {
       document.body.classList.add('modal-open');
       if (currentPlayingIndex !== -1) {
         videoRefs.current[currentPlayingIndex]?.pause();
@@ -48,7 +82,7 @@ function ReelsFeed() {
         playVideoSafely(currentPlayingIndex);
       }
     }
-  }, [selectedReel, shareReel, currentPlayingIndex, isManuallyPaused]);
+  }, [commentModal, shareReel, currentPlayingIndex, isManuallyPaused]);
 
   // Safe video playback with proper audio management
   const playVideoSafely = async (index: number) => {
@@ -58,16 +92,16 @@ function ReelsFeed() {
     try {
       // Reset video state first
       video.currentTime = 0;
-      
+
       // Try playing with audio first
       video.muted = false;
       await video.play();
-      
+
       console.log(`✅ Video ${index} playing with audio`);
-      
+
     } catch (error) {
       console.log(`🔇 Video ${index} autoplay prevented, trying muted`);
-      
+
       // If autoplay fails, try muted
       try {
         video.muted = true;
@@ -91,7 +125,7 @@ function ReelsFeed() {
       (entries) => {
         // Find the most centered video
         const visibleVideos = entries.filter(entry => entry.isIntersecting);
-        
+
         if (visibleVideos.length === 0) {
           // No videos visible, pause current
           if (currentPlayingIndex !== -1) {
@@ -119,7 +153,7 @@ function ReelsFeed() {
         });
 
         // Only switch if we have a new centered video
-        if (mostCenteredIndex !== -1 && mostCenteredIndex !== currentPlayingIndex && !isManuallyPaused && !selectedReel && !shareReel) {
+        if (mostCenteredIndex !== -1 && mostCenteredIndex !== currentPlayingIndex && !isManuallyPaused && !commentModal && !shareReel) {
           // Pause current video
           if (currentPlayingIndex !== -1) {
             videoRefs.current[currentPlayingIndex]?.pause();
@@ -130,9 +164,9 @@ function ReelsFeed() {
           playVideoSafely(mostCenteredIndex);
         }
       },
-      { 
+      {
         threshold: 0.6, // Single threshold for simplicity
-        rootMargin: '0px 0px 0px 0px' 
+        rootMargin: '0px 0px 0px 0px'
       }
     );
 
@@ -140,7 +174,7 @@ function ReelsFeed() {
     videoRefs.current.forEach(video => video && observer.observe(video));
 
     return () => observer.disconnect();
-  }, [localReels.length, isManuallyPaused, selectedReel, shareReel, currentPlayingIndex]);
+  }, [localReels.length, isManuallyPaused, commentModal, shareReel, currentPlayingIndex]);
 
   // Load more on scroll
   useEffect(() => {
@@ -173,7 +207,7 @@ function ReelsFeed() {
 
       setIsManuallyPaused(false);
       setCurrentPlayingIndex(index);
-      
+
       // If video was muted due to autoplay restrictions, try to unmute on user interaction
       if (mutedStatesRef.current[index]) {
         try {
@@ -201,7 +235,6 @@ function ReelsFeed() {
   // Video error handler
   const handleVideoError = (index: number) => {
     console.error(`❌ Video ${index} failed to load`);
-    // You could set a fallback state here or show an error overlay
   };
 
   // Video loaded handler
@@ -223,24 +256,100 @@ function ReelsFeed() {
     });
   };
 
-  // Action handlers
-  const handleLike = (index: number) => {
-    setLocalReels(prev => prev.map((reel, i) =>
-      i === index ? {
-        ...reel,
-        isLiked: !reel.isLiked,
-        likes: reel.isLiked ? reel.likes - 1 : reel.likes + 1
-      } : reel
-    ));
-  };
+  // ✅ UPDATED: Like handler using contentManager
+  const handleLike = useCallback((index: number) => {
+    if (!userId) return;
 
-  const handleComment = (index: number) => {
-    setSelectedReel(localReels[index]);
-  };
+    const reel = localReels[index];
+    const newLikedState = !reel.isLiked;
+    const newLikeCount = newLikedState ? reel.likes + 1 : Math.max(0, reel.likes - 1);
+
+    // Optimistic UI update
+    setLocalReels(prev => prev.map((item, i) =>
+      i === index ? {
+        ...item,
+        isLiked: newLikedState,
+        likes: newLikeCount
+      } : item
+    ));
+
+    console.log('🔄 ReelsFeed - Liking reel:', {
+      id: reel.postId,
+      userId: userId,
+      currentlyLiked: reel.isLiked
+    });
+
+    // Use centralized content manager
+    contentManager.likeContent(reel.postId, 'reel', userId, !!reel.isLiked);
+  }, [localReels, userId]);
+
+  // ✅ UPDATED: Comment handler using user data from API
+  const handleComment = useCallback((index: number) => {
+    const reel = localReels[index];
+    console.log('🔍 Opening comment for reel:', {
+      id: reel.postId,
+      content: reel.caption,
+      commentCount: reel.comments,
+      contentType: 'reel',
+      userName: reel.user?.userName // Use actual username from user data
+    });
+
+    setCommentModal({
+      isOpen: true,
+      postId: reel.postId,
+      userName: reel.user?.userName || reel.userId, // ✅ Use username from user data
+      postMessage: reel.caption,
+      commentCount: reel.comments,
+      contentType: 'reel'
+    });
+  }, [localReels]);
 
   const handleShare = (index: number) => {
     setShareReel(localReels[index]);
   };
+
+  // ✅ FIXED: Comment modal callbacks to update local state
+  const handleNewComment = useCallback((postId: string) => {
+    console.log('✅ ReelsFeed: New comment added to reel:', postId);
+
+    // Update local reels state
+    setLocalReels(prev => prev.map(reel =>
+      reel.postId === postId ? {
+        ...reel,
+        comments: (reel.comments || 0) + 1
+      } : reel
+    ));
+
+    // Update content manager stats
+    const currentStats = contentManager.getContentStats(postId);
+    if (currentStats) {
+      contentManager.initializeContentStats(postId, {
+        ...currentStats,
+        commentCount: currentStats.commentCount + 1
+      });
+    }
+  }, []);
+
+  const handleDeleteComment = useCallback((postId: string) => {
+    console.log('✅ ReelsFeed: Comment deleted from reel:', postId);
+
+    // Update local reels state
+    setLocalReels(prev => prev.map(reel =>
+      reel.postId === postId ? {
+        ...reel,
+        comments: Math.max(0, (reel.comments || 1) - 1)
+      } : reel
+    ));
+
+    // Update content manager stats
+    const currentStats = contentManager.getContentStats(postId);
+    if (currentStats) {
+      contentManager.initializeContentStats(postId, {
+        ...currentStats,
+        commentCount: Math.max(0, currentStats.commentCount - 1)
+      });
+    }
+  }, []);
 
   // Video ref handler
   const handleVideoRef = (index: number) => (el: HTMLVideoElement | null) => {
@@ -256,15 +365,15 @@ function ReelsFeed() {
     if (index < localReels.length - 1) {
       const nextIndex = index + 1;
       const nextVideo = videoRefs.current[nextIndex];
-      
+
       if (nextVideo && nextVideo.paused) {
         // Pause current video
         videoRefs.current[index]?.pause();
-        
+
         // Play next video
         setCurrentPlayingIndex(nextIndex);
         await playVideoSafely(nextIndex);
-        
+
         // Scroll next video into view smoothly
         setTimeout(() => {
           const nextReelElement = containerRef.current?.querySelector(`[data-reel-index="${nextIndex}"]`);
@@ -281,20 +390,8 @@ function ReelsFeed() {
   };
 
   // Modal handlers
-  const handleCloseCommentModal = () => setSelectedReel(null);
+  const handleCloseCommentModal = () => setCommentModal(null);
   const handleCloseShareModal = () => setShareReel(null);
-
-  const handleNewComment = (reelId: string) => {
-    setLocalReels(prev => prev.map(reel =>
-      reel.postId === reelId ? { ...reel, comments: reel.comments + 1 } : reel
-    ));
-  };
-
-  const handleDeleteComment = (reelId: string) => {
-    setLocalReels(prev => prev.map(reel =>
-      reel.postId === reelId ? { ...reel, comments: Math.max(0, reel.comments - 1) } : reel
-    ));
-  };
 
   if (error) {
     return (
@@ -352,12 +449,25 @@ function ReelsFeed() {
 
                 <div className="reel-info-overlay">
                   <div className="reel-user-info">
+                    {/* ✅ UPDATED: Use user profile data from API */}
                     <div className="reel-user-avatar" onClick={() => navigate(`/profile/${reel.userId}`)}>
-                      <span>{reel.userId?.charAt(0)?.toUpperCase() || 'U'}</span>
+                      {reel.user?.profilePic ? (
+                        <img
+                          src={reel.user.profilePic}
+                          alt={reel.user.userName}
+                          className="reel-user-avatar-img"
+                        />
+                      ) : (
+                        <span>{reel.user?.userName?.charAt(0)?.toUpperCase() || reel.userId?.charAt(0)?.toUpperCase() || 'U'}</span>
+                      )}
                     </div>
 
                     <div className="reel-caption-container" onClick={(e) => handleCaptionClick(index, e)}>
-                      <p className="reel-username">@{reel.userId?.slice(0, 8) || 'unknown'}</p>
+                      {/* ✅ UPDATED: Use actual username from user data */}
+                      <p className="reel-username">@{reel.user?.userName || reel.userId?.slice(0, 8) || 'unknown'}</p>
+                      {reel.user?.tagline && (
+                        <p className="reel-user-tagline">"{reel.user.tagline}"</p>
+                      )}
                       <p className={`reel-caption ${expandedDescriptions.has(index) ? 'expanded' : ''}`}>
                         {expandedDescriptions.has(index) ? reel.caption : truncateCaption(reel.caption)}
                       </p>
@@ -427,34 +537,39 @@ function ReelsFeed() {
         )}
       </div>
 
-      {/* Modals */}
-      {selectedReel && (
+      {/* ✅ UPDATED: Use same CommentModal as PersonalizedFeed */}
+      {commentModal && (
         <CommentModal
-          postId={selectedReel.postId}
-          isOpen={true}
+          postId={commentModal.postId}
+          isOpen={commentModal.isOpen}
           onClose={handleCloseCommentModal}
-          userName={selectedReel.userId || 'unknown'}
-          postMessage={selectedReel.caption}
-          currentUserId={"current-user-id"}
+          userName={commentModal.userName}
+          postMessage={commentModal.postMessage}
+          commentCount={commentModal.commentCount}
+          contentType={commentModal.contentType}
+          currentUserId={userId}
+          accessToken={accessToken}
           onNewComment={handleNewComment}
           onDeleteComment={handleDeleteComment}
         />
       )}
 
       {shareReel && (
-        <ShareModal
+        <ShareComponent
           postId={shareReel.postId}
-          userName={shareReel.userId || 'unknown'}
+          userName={shareReel.user?.userName || shareReel.userId || 'unknown'}
           message={shareReel.caption}
-          timestamp={new Date().toISOString()}
+          timestamp={shareReel.timestamp || Date.now()} // This can be string or number
           likeCount={shareReel.likes}
           commentCount={shareReel.comments}
           isOpen={true}
           onClose={handleCloseShareModal}
+          contentType="reel"
+          mediaUrl={shareReel.files[0]?.presignedUrl}
         />
       )}
     </>
   );
-};
+}
 
 export default ReelsFeed;

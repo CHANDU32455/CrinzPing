@@ -215,130 +215,132 @@ const GlobalFeed: React.FC = () => {
   };
 
   return (
-      <div className="global-feed">
-        {networkError && (
-          <div className="network-error-chip">
-            <div className="network-error-content">
-              <span className="network-error-icon">⚠️</span>
-              <span className="network-error-message">{networkError}</span>
-              <button
-                className="network-error-dismiss"
-                onClick={dismissNetworkError}
-                aria-label="Dismiss error"
-              >
-                ×
-              </button>
-            </div>
+    <div className="global-feed">
+      {networkError && (
+        <div className="network-error-chip">
+          <div className="network-error-content">
+            <span className="network-error-icon">⚠️</span>
+            <span className="network-error-message">{networkError}</span>
+            <button
+              className="network-error-dismiss"
+              onClick={dismissNetworkError}
+              aria-label="Dismiss error"
+            >
+              ×
+            </button>
           </div>
-        )}
+        </div>
+      )}
 
-        <div className="feed-posts">
-          {localPosts.length === 0 && !loading ? (
-            <div className="no-posts">
-              <p>No posts found</p>
-              <button onClick={handleRetry} className="retry-button">
-                Refresh Feed
-              </button>
-            </div>
-          ) : (
-            localPosts.map((post, index) => (
-              <div
-                key={post.crinzId}
-                className="feed-post"
-                ref={index === localPosts.length - 1 ? lastPostElementRef : null}
-              >
-                <div className="post-header">
-                  <div className="user-avatar">
-                    <UserAvatar userName={post.userName} size={40} className="avatar-image" />
-                  </div>
-                  <div className="user-info">
-                    <div 
-                      className="username" 
-                      style={{
-                        cursor: "pointer",
-                        color: "#00aaff",
-                        fontWeight: 600,
-                        textDecoration: "underline",
-                      }}
-                      onClick={() => navigate(`/profile/${post.userId}`)}
-                    >
-                      @{post.userName}
-                    </div>
-                    <div className="timestamp">{formatTime(post.timestamp)}</div>
-                  </div>
+      <div className="feed-posts">
+        {localPosts.length === 0 && !loading ? (
+          <div className="no-posts">
+            <p>No posts found</p>
+            <button onClick={handleRetry} className="retry-button">
+              Refresh Feed
+            </button>
+          </div>
+        ) : (
+          localPosts.map((post, index) => (
+            <div
+              key={post.crinzId}
+              className="feed-post"
+              ref={index === localPosts.length - 1 ? lastPostElementRef : null}
+            >
+              <div className="post-header">
+                <div className="user-avatar">
+                  <UserAvatar userName={post.userName} size={40} className="avatar-image" />
                 </div>
-
-                <div className="post-content">
-                  <p>{post.message}</p>
-                </div>
-
-                <div className="post-actions">
-                  <button
-                    className={`like-btn ${post.isLiked ? "liked" : ""}`}
-                    onClick={() => handleLike(post.crinzId, post.isLiked || false)}
+                <div className="user-info">
+                  <div
+                    className="username"
+                    style={{
+                      cursor: "pointer",
+                      color: "#00aaff",
+                      fontWeight: 600,
+                      textDecoration: "underline",
+                    }}
+                    onClick={() => navigate(`/profile/${post.userId}`)}
                   >
-                    {post.isLiked ? "❤️" : "🤍"} {post.likeCount}
-                  </button>
-                  <button
-                    className="comment-btn"
-                    onClick={() => handleComment(post.crinzId)}
-                  >
-                    💬 {post.commentCount}
-                  </button>
-                  <button
-                    className="share-btn"
-                    onClick={() => handleShare(post.crinzId)}
-                  >
-                    📤 Share
-                  </button>
+                    @{post.userName}
+                  </div>
+                  <div className="timestamp">{formatTime(post.timestamp)}</div>
                 </div>
               </div>
-            ))
-          )}
-        </div>
 
-        {loading && (
-          <div className="loading-indicator" ref={loadingRef}>
-            <div className="loading-spinner"></div>
-            <p>Loading more posts...</p>
-          </div>
-        )}
+              <div className="post-content">
+                <p>{post.message}</p>
+              </div>
 
-        {!hasMore && localPosts.length > 0 && (
-          <div className="end-of-feed">
-            <p>You've reached the end of the feed</p>
-          </div>
-        )}
-
-        <SyncStatusIndicator />
-
-        {selectedPost && (
-          <CommentModal
-            postId={selectedPost.id}
-            isOpen={true}
-            onClose={handleCloseCommentModal}
-            userName={selectedPost.userName}
-            postMessage={selectedPost.message}
-            currentUserId={userId}
-            accessToken={accessToken}
-            onNewComment={handleNewComment}
-            onDeleteComment={handleDeleteComment}
-          />
-        )}
-
-        {sharePost && (
-          <ShareComponent
-            postId={sharePost.id}
-            userName={sharePost.userName}
-            message={sharePost.message}
-            timestamp={sharePost.timestamp}
-            likeCount={sharePost.likeCount}
-            commentCount={sharePost.commentCount}
-            isOpen={true}
-            onClose={handleCloseShareModal}
-          />
+              <div className="post-actions">
+                <button
+                  className={`like-btn ${post.isLiked ? "liked" : ""}`}
+                  onClick={() => handleLike(post.crinzId, post.isLiked || false)}
+                >
+                  {post.isLiked ? "❤️" : "🤍"} {post.likeCount}
+                </button>
+                <button
+                  className="comment-btn"
+                  onClick={() => handleComment(post.crinzId)}
+                >
+                  💬 {post.commentCount}
+                </button>
+                <button
+                  className="share-btn"
+                  onClick={() => handleShare(post.crinzId)}
+                >
+                  📤 Share
+                </button>
+              </div>
+            </div>
+          ))
         )}
       </div>
+
+      {loading && (
+        <div className="loading-indicator" ref={loadingRef}>
+          <div className="loading-spinner"></div>
+          <p>Loading more posts...</p>
+        </div>
+      )}
+
+      {!hasMore && localPosts.length > 0 && (
+        <div className="end-of-feed">
+          <p>You've reached the end of the feed</p>
+        </div>
+      )}
+
+      {/* Sync Status Indicator - Only show in development */}
+      {process.env.NODE_ENV === 'development' && <SyncStatusIndicator />}
+      
+      {selectedPost && (
+        <CommentModal
+          postId={selectedPost.id}
+          isOpen={true}
+          onClose={handleCloseCommentModal}
+          userName={selectedPost.userName}
+          postMessage={selectedPost.message}
+          commentCount={selectedPost.commentCount}
+          currentUserId={userId}
+          accessToken={accessToken}
+          onNewComment={handleNewComment}
+          onDeleteComment={handleDeleteComment}
+        />
+      )}
+
+      {sharePost && (
+        <ShareComponent
+          postId={sharePost.id}
+          userName={sharePost.userName}
+          message={sharePost.message}
+          timestamp={sharePost.timestamp}
+          likeCount={sharePost.likeCount}
+          commentCount={sharePost.commentCount}
+          isOpen={true}
+          onClose={handleCloseShareModal}
+        />
+      )}
+    </div>
   );
 };
 

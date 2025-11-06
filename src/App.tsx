@@ -3,7 +3,7 @@ import { HeadProvider } from "react-head";
 import { useAuth } from "react-oidc-context";
 
 import Home from "./pages/home";
-import ReelsFeed from "./feed/tabs/reelsfeed/ReelsFeed";
+import ReelsFeed from "./feed/tabs/ReelsFeed";
 import GlobalFeed from "./feed/tabs/GlobalFeed";
 import UserPostsFeed from "./feed/tabs/personalizedfeed/PersonalizedFeed";
 import CrinzExplorer from "./pages/CrinzSubmit";
@@ -38,7 +38,6 @@ import ShowFollowers from "./following/ShowFollowers";
 import ShowFollowing from "./following/ShowFollowing";
 import "./App.css";
 
-
 const App = () => {
   const auth = useAuth();
 
@@ -61,7 +60,7 @@ const App = () => {
             <Route path="/privacySettings" element={<PrivacySettingsPage />} />
             <Route path="/goodbye" element={<GoodBye />} />
 
-            {/* protected routes */}
+            {/* Protected routes - profile tab handles new user setup */}
             <Route path="/feed/personalizedfeed" element={<ProtectedRoute><UserPostsFeed /></ProtectedRoute>} />
             <Route path="/feed/crinzmessagesfeed" element={<ProtectedRoute><GlobalFeed /></ProtectedRoute>} />
             <Route path="/feed/reelsfeed" element={<ProtectedRoute><ReelsFeed /></ProtectedRoute>} />

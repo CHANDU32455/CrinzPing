@@ -399,11 +399,7 @@
   scrollbar-width: none;
 }
 /* Responsive */
-@media (max-width: 640px) {
-  .profile-container {
-    padding: 12px;
-  }
-  
+@media (max-width: 640px) {  
   .profile-card {
     padding: 24px 16px;
     border-radius: 20px;

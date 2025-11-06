@@ -7,45 +7,77 @@ interface EngagementButtonsProps {
   onLike: () => void;
   onShare: () => void;
   onComment: () => void;
+  onLikeUpdate?: (contentId: string, newLikeCount: number, isLiked: boolean) => void; // ✅ NEW: Like callback
 }
 
-const EngagementButtons: React.FC<EngagementButtonsProps> = ({ 
-  item, 
-  onLike, 
-  onShare, 
-  onComment 
+const EngagementButtons: React.FC<EngagementButtonsProps> = ({
+  item,
+  onLike,
+  onShare,
+  onComment,
+  onLikeUpdate // ✅ NEW: Like callback prop
 }) => {
   const auth = useAuth();
   const userId = auth.user?.profile?.sub;
-  
-  // Use the isLikedByUser flag from backend directly
-  const [liked, setLiked] = useState(item.isLikedByUser || false);
-  const [likeCount, setLikeCount] = useState(item.likeCount || 0);
-  const [commentCount, setCommentCount] = useState(item.commentCount || 0);
 
-  // Update state when item prop changes (for feed updates)
+  // Handle both field name variations
+  const [liked, setLiked] = useState(item.isLikedByUser || false);
+  const [likeCount, setLikeCount] = useState(
+    item.likeCount !== undefined ? item.likeCount :
+      item.likes !== undefined ? item.likes : 0
+  );
+  const [commentCount, setCommentCount] = useState(
+    item.commentCount !== undefined ? item.commentCount :
+      item.comments !== undefined ? item.comments : 0
+  );
+  const [localCommentCount, setLocalCommentCount] = useState(commentCount);
+
+  useEffect(() => {
+    setLocalCommentCount(commentCount);
+  }, [commentCount]);
+
+  // Update state when item prop changes
   useEffect(() => {
     setLiked(item.isLikedByUser || false);
-    setLikeCount(item.likeCount || 0);
-    setCommentCount(item.commentCount || 0);
-  }, [item.isLikedByUser, item.likeCount, item.commentCount]);
+    setLikeCount(
+      item.likeCount !== undefined ? item.likeCount :
+        item.likes !== undefined ? item.likes : 0
+    );
+    setCommentCount(
+      item.commentCount !== undefined ? item.commentCount :
+        item.comments !== undefined ? item.comments : 0
+    );
+  }, [item.isLikedByUser, item.likeCount, item.likes, item.commentCount, item.comments]);
 
+  // ✅ UPDATED: Handle like with parent callback
   const handleLike = useCallback(() => {
     if (!userId) return;
 
     const newLikedState = !liked;
     const newLikeCount = newLikedState ? likeCount + 1 : Math.max(0, likeCount - 1);
-    
+
     // Optimistic UI update
     setLiked(newLikedState);
     setLikeCount(newLikeCount);
-    
-    // Use centralized content manager - pass the CURRENT state (before toggle)
+
+    console.log('🔄 EngagementButtons - Liking content:', {
+      id: item.id,
+      type: item.type,
+      userId: userId,
+      currentlyLiked: liked,
+      newLikeCount: newLikeCount
+    });
+
+    // Use centralized content manager
     contentManager.likeContent(item.id, item.type, userId, liked);
-    
-    // Call parent handler if needed
+
+    // ✅ NEW: Notify parent component of like update
+    if (onLikeUpdate) {
+      onLikeUpdate(item.id, newLikeCount, newLikedState);
+    }
+
     onLike();
-  }, [liked, likeCount, userId, item.id, item.type, onLike]);
+  }, [liked, likeCount, userId, item.id, item.type, onLike, onLikeUpdate]);
 
   const handleComment = useCallback(() => {
     onComment();
@@ -96,7 +128,7 @@ const EngagementButtons: React.FC<EngagementButtonsProps> = ({
             </svg>
           </div>
           <span className="text-sm font-semibold text-gray-400 min-w-[24px] text-center">
-            {commentCount}
+            {localCommentCount}
           </span>
         </button>
 

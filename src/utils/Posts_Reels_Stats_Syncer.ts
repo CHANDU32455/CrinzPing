@@ -1,4 +1,3 @@
-// utils/contentManager.ts
 import { useState, useEffect, useCallback } from 'react';
 import { batchSyncer, type BatchAction, useBatchSync } from '../feed/utils/msgsBatchSyncer';
 
@@ -8,7 +7,7 @@ export type ContentType = 'crinz_message' | 'post' | 'reel';
 export interface ContentAction extends Omit<BatchAction, 'crinzId'> {
   contentId: string;
   contentType: ContentType;
-  crinzId?: string; // For backward compatibility
+  crinzId?: string;
 }
 
 export interface LikeAction extends Omit<ContentAction, 'type' | 'payload'> {
@@ -24,26 +23,6 @@ export interface CommentAction extends Omit<ContentAction, 'type'> {
   };
 }
 
-export interface ShareAction extends Omit<ContentAction, 'type' | 'payload'> {
-  type: 'share';
-  payload: {
-    platform?: string;
-    message?: string;
-    sharedTo?: string[];
-  };
-}
-
-export interface ViewAction extends Omit<ContentAction, 'type' | 'payload'> {
-  type: 'view';
-  payload: {
-    viewDuration?: number;
-    progress?: number;
-  };
-}
-
-export type EnhancedContentAction = LikeAction | CommentAction | ShareAction | ViewAction;
-
-// Content statistics interface
 export interface ContentStats {
   likeCount: number;
   commentCount: number;
@@ -53,34 +32,10 @@ export interface ContentStats {
   isBookmarked?: boolean;
 }
 
-// Content item base interface
-export interface ContentItem {
-  id: string;
-  type: ContentType;
-  userId: string;
-  content: string;
-  timestamp: number;
-  stats: ContentStats;
-  user?: {
-    userName: string;
-    profilePic: string;
-    tagline: string;
-  };
-  files?: Array<{
-    type: string;
-    url: string;
-    fileName: string;
-    s3Key: string;
-  }>;
-}
-
 class ContentManager {
   private contentStatsCache = new Map<string, ContentStats>();
   private contentCallbacks = new Map<string, Array<(stats: ContentStats) => void>>();
 
-  /**
-   * Like or unlike any content type
-   */
   likeContent(contentId: string, contentType: ContentType, userId: string, currentlyLiked: boolean): void {
     const action: LikeAction = {
       type: currentlyLiked ? 'unlike' : 'like',
@@ -90,37 +45,45 @@ class ContentManager {
       timestamp: new Date().toISOString(),
     };
 
+    console.log('📤 ContentManager - Like Action:', {
+      contentId,
+      contentType,
+      userId,
+      currentlyLiked
+    });
+
     // Optimistic update
     this.updateContentStats(contentId, {
       likeCount: currentlyLiked ? -1 : 1,
       isLikedByUser: !currentlyLiked,
     });
 
-    // Convert to legacy format for batchSyncer (backward compatibility)
+    // Convert to legacy format with content type
     const legacyAction: Omit<BatchAction, 'timestamp'> = {
       type: action.type,
-      crinzId: contentId, // Using contentId as crinzId for legacy support
+      crinzId: contentId,
       userId: action.userId,
+      payload: {
+        contentType: contentType,
+        isCrinzMessage: contentType === 'crinz_message'
+      }
     };
 
     batchSyncer.addAction(legacyAction);
   }
 
-  /**
-   * Add comment to any content type
-   */
   addComment(
-    contentId: string, 
-    contentType: ContentType, 
-    userId: string, 
-    comment: string, 
+    contentId: string,
+    contentType: ContentType,  // This should be 'post' for posts
+    userId: string,
+    comment: string,
     tempCommentId?: string,
     parentCommentId?: string
   ): void {
     const action: CommentAction = {
       type: 'add_comment',
       contentId,
-      contentType,
+      contentType,  // Make sure this is correct
       userId,
       timestamp: new Date().toISOString(),
       payload: {
@@ -130,12 +93,20 @@ class ContentManager {
       },
     };
 
+    console.log('📤 ContentManager - Add Comment:', {
+      contentId,
+      contentType,  // Check what this shows in logs
+      userId,
+      commentLength: comment.length,
+      tempCommentId
+    });
+
     // Optimistic update
     this.updateContentStats(contentId, {
       commentCount: 1,
     });
 
-    // Convert to legacy format
+    // Convert to legacy format - MAKE SURE CONTENT TYPE IS PASSED CORRECTLY
     const legacyAction: Omit<BatchAction, 'timestamp'> = {
       type: 'add_comment',
       crinzId: contentId,
@@ -143,19 +114,24 @@ class ContentManager {
       payload: {
         text: comment,
         commentId: tempCommentId,
+        contentType: contentType,  // ← THIS MUST BE CORRECT
+        isCrinzMessage: contentType === 'crinz_message'
       },
     };
+
+    console.log('📤 ContentManager - Legacy Comment Action:', {
+      crinzId: contentId,
+      contentType: contentType,  // Add this log to verify
+      payload: legacyAction.payload
+    });
 
     batchSyncer.addAction(legacyAction);
   }
 
-  /**
-   * Remove comment from any content type
-   */
   removeComment(
-    contentId: string, 
-    contentType: ContentType, 
-    userId: string, 
+    contentId: string,
+    contentType: ContentType,
+    userId: string,
     commentId: string
   ): void {
     const action: CommentAction = {
@@ -181,24 +157,23 @@ class ContentManager {
       crinzId: contentId,
       userId: action.userId,
       payload: {
-        commentId,
+        commentId: commentId,
+        contentType: contentType,
+        isCrinzMessage: contentType === 'crinz_message'
       },
     };
 
     batchSyncer.addAction(legacyAction);
   }
 
-  /**
-   * Share any content type
-   */
   shareContent(
-    contentId: string, 
-    contentType: ContentType, 
-    userId: string, 
-    platform?: string, 
+    contentId: string,
+    contentType: ContentType,
+    userId: string,
+    platform?: string,
     message?: string
   ): void {
-    const action: ShareAction = {
+    const action = {
       type: 'share',
       contentId,
       contentType,
@@ -215,44 +190,9 @@ class ContentManager {
       shareCount: 1,
     });
 
-    // Note: Share might need separate API endpoint
     console.log('Share action:', action);
   }
 
-  /**
-   * Track content view (for analytics)
-   */
-  trackView(
-    contentId: string, 
-    contentType: ContentType, 
-    userId: string, 
-    viewDuration?: number, 
-    progress?: number
-  ): void {
-    const action: ViewAction = {
-      type: 'view',
-      contentId,
-      contentType,
-      userId,
-      timestamp: new Date().toISOString(),
-      payload: {
-        viewDuration,
-        progress,
-      },
-    };
-
-    // Optimistic update for view count
-    this.updateContentStats(contentId, {
-      viewCount: 1,
-    });
-
-    // Views might go to analytics service
-    console.log('View tracked:', action);
-  }
-
-  /**
-   * Update content stats optimistically
-   */
   private updateContentStats(contentId: string, updates: Partial<ContentStats>): void {
     const currentStats = this.contentStatsCache.get(contentId) || {
       likeCount: 0,
@@ -275,9 +215,6 @@ class ContentManager {
     this.notifyContentSubscribers(contentId, newStats);
   }
 
-  /**
-   * Subscribe to content stats changes
-   */
   subscribeToContent(contentId: string, callback: (stats: ContentStats) => void): () => void {
     if (!this.contentCallbacks.has(contentId)) {
       this.contentCallbacks.set(contentId, []);
@@ -286,21 +223,17 @@ class ContentManager {
     const callbacks = this.contentCallbacks.get(contentId)!;
     callbacks.push(callback);
 
-    // Return unsubscribe function
     return () => {
       const callbacks = this.contentCallbacks.get(contentId);
       if (callbacks) {
         this.contentCallbacks.set(
-          contentId, 
+          contentId,
           callbacks.filter(cb => cb !== callback)
         );
       }
     };
   }
 
-  /**
-   * Notify subscribers of content stats changes
-   */
   private notifyContentSubscribers(contentId: string, stats: ContentStats): void {
     const callbacks = this.contentCallbacks.get(contentId);
     if (callbacks) {
@@ -308,17 +241,11 @@ class ContentManager {
     }
   }
 
-  /**
-   * Get current stats for content
-   */
   getContentStats(contentId: string): ContentStats | undefined {
     return this.contentStatsCache.get(contentId);
   }
 
-  /**
-   * Initialize content stats from server data
-   */
-  initializeContentStats(contentId: string, serverStats: Partial<ContentStats>): void {
+  initializeContentStats(contentId: string, serverStats: any): void {
     const currentStats = this.contentStatsCache.get(contentId) || {
       likeCount: 0,
       commentCount: 0,
@@ -327,39 +254,37 @@ class ContentManager {
       isLikedByUser: false,
     };
 
+    const likeCount = serverStats.likeCount !== undefined ? serverStats.likeCount :
+      serverStats.likes !== undefined ? serverStats.likes :
+        currentStats.likeCount;
+
+    const commentCount = serverStats.commentCount !== undefined ? serverStats.commentCount :
+      serverStats.comments !== undefined ? serverStats.comments :
+        currentStats.commentCount;
+
     const newStats: ContentStats = {
       ...currentStats,
-      ...serverStats,
+      likeCount,
+      commentCount,
+      isLikedByUser: serverStats.isLikedByUser !== undefined ? serverStats.isLikedByUser : currentStats.isLikedByUser,
     };
 
     this.contentStatsCache.set(contentId, newStats);
     this.notifyContentSubscribers(contentId, newStats);
   }
 
-  /**
-   * Get real comment ID after sync (for temp ID mapping)
-   */
   getRealCommentId(tempCommentId: string): string | undefined {
     return batchSyncer.getRealCommentId(tempCommentId);
   }
 
-  /**
-   * Force sync all pending actions
-   */
   forceSync(): void {
     batchSyncer.forceSync();
   }
 
-  /**
-   * Clear all pending actions
-   */
   clearPending(): void {
     batchSyncer.clearPending();
   }
 
-  /**
-   * Get current pending actions count
-   */
   getPendingCount(): number {
     return batchSyncer.getPendingCount();
   }
@@ -373,19 +298,19 @@ export const useContentManager = () => {
   const { syncState, forceSync, clearPending, pendingCount } = useBatchSync();
 
   const likeContent = useCallback((
-    contentId: string, 
-    contentType: ContentType, 
-    userId: string, 
+    contentId: string,
+    contentType: ContentType,
+    userId: string,
     currentlyLiked: boolean
   ) => {
     contentManager.likeContent(contentId, contentType, userId, currentlyLiked);
   }, []);
 
   const addComment = useCallback((
-    contentId: string, 
-    contentType: ContentType, 
-    userId: string, 
-    comment: string, 
+    contentId: string,
+    contentType: ContentType,
+    userId: string,
+    comment: string,
     tempCommentId?: string,
     parentCommentId?: string
   ) => {
@@ -393,32 +318,22 @@ export const useContentManager = () => {
   }, []);
 
   const removeComment = useCallback((
-    contentId: string, 
-    contentType: ContentType, 
-    userId: string, 
+    contentId: string,
+    contentType: ContentType,
+    userId: string,
     commentId: string
   ) => {
     contentManager.removeComment(contentId, contentType, userId, commentId);
   }, []);
 
   const shareContent = useCallback((
-    contentId: string, 
-    contentType: ContentType, 
-    userId: string, 
-    platform?: string, 
+    contentId: string,
+    contentType: ContentType,
+    userId: string,
+    platform?: string,
     message?: string
   ) => {
     contentManager.shareContent(contentId, contentType, userId, platform, message);
-  }, []);
-
-  const trackView = useCallback((
-    contentId: string, 
-    contentType: ContentType, 
-    userId: string, 
-    viewDuration?: number, 
-    progress?: number
-  ) => {
-    contentManager.trackView(contentId, contentType, userId, viewDuration, progress);
   }, []);
 
   const subscribeToContent = useCallback((contentId: string, callback: (stats: ContentStats) => void) => {
@@ -434,19 +349,13 @@ export const useContentManager = () => {
   }, []);
 
   return {
-    // Actions
     likeContent,
     addComment,
     removeComment,
     shareContent,
-    trackView,
-    
-    // Stats management
     subscribeToContent,
     getContentStats,
     initializeContentStats,
-    
-    // Sync management
     syncState,
     forceSync,
     clearPending,
@@ -455,7 +364,6 @@ export const useContentManager = () => {
   };
 };
 
-// Hook for individual content item
 export const useContentItem = (contentId: string, initialStats?: Partial<ContentStats>) => {
   const [stats, setStats] = useState<ContentStats>(() => ({
     likeCount: 0,
@@ -466,23 +374,21 @@ export const useContentItem = (contentId: string, initialStats?: Partial<Content
     ...initialStats,
   }));
 
-  const { 
-    likeContent, 
-    addComment, 
-    removeComment, 
+  const {
+    likeContent,
+    addComment,
+    removeComment,
     shareContent,
     subscribeToContent,
-    initializeContentStats 
+    initializeContentStats
   } = useContentManager();
 
-  // Initialize stats
   useEffect(() => {
     if (initialStats) {
       initializeContentStats(contentId, initialStats);
     }
   }, [contentId, initialStats, initializeContentStats]);
 
-  // Subscribe to stats changes
   useEffect(() => {
     const unsubscribe = subscribeToContent(contentId, (newStats) => {
       setStats(newStats);
@@ -491,17 +397,17 @@ export const useContentItem = (contentId: string, initialStats?: Partial<Content
   }, [contentId, subscribeToContent]);
 
   const handleLike = useCallback((
-    contentType: ContentType, 
-    userId: string, 
+    contentType: ContentType,
+    userId: string,
     currentlyLiked: boolean
   ) => {
     likeContent(contentId, contentType, userId, currentlyLiked);
   }, [contentId, likeContent]);
 
   const handleAddComment = useCallback((
-    contentType: ContentType, 
-    userId: string, 
-    comment: string, 
+    contentType: ContentType,
+    userId: string,
+    comment: string,
     tempCommentId?: string,
     parentCommentId?: string
   ) => {
@@ -509,17 +415,17 @@ export const useContentItem = (contentId: string, initialStats?: Partial<Content
   }, [contentId, addComment]);
 
   const handleRemoveComment = useCallback((
-    contentType: ContentType, 
-    userId: string, 
+    contentType: ContentType,
+    userId: string,
     commentId: string
   ) => {
     removeComment(contentId, contentType, userId, commentId);
   }, [contentId, removeComment]);
 
   const handleShare = useCallback((
-    contentType: ContentType, 
-    userId: string, 
-    platform?: string, 
+    contentType: ContentType,
+    userId: string,
+    platform?: string,
     message?: string
   ) => {
     shareContent(contentId, contentType, userId, platform, message);

@@ -8,9 +8,10 @@ interface ReelTileProps {
   item: any;
   onComment: () => void;
   onShare: () => void;
+  onLikeUpdate?: (contentId: string, newLikeCount: number, isLiked: boolean) => void; // ✅ NEW: Like callback
 }
 
-const ReelTile: React.FC<ReelTileProps> = ({ item, onComment, onShare }) => {
+const ReelTile: React.FC<ReelTileProps> = ({ item, onComment, onShare, onLikeUpdate }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const { ref, isInViewport, hasBeenInViewport, shouldPreload } = useInViewport({ threshold: 0.7 });
@@ -177,8 +178,9 @@ const ReelTile: React.FC<ReelTileProps> = ({ item, onComment, onShare }) => {
     }
   }, []);
 
+  // ✅ UPDATED: Handle like with callback
   const handleLike = useCallback(() => {
-    // Handled by EngagementButtons
+    // This will be handled by EngagementButtons with the callback
   }, []);
 
   return (
@@ -325,6 +327,7 @@ const ReelTile: React.FC<ReelTileProps> = ({ item, onComment, onShare }) => {
         onLike={handleLike}
         onShare={onShare}
         onComment={onComment}
+        onLikeUpdate={onLikeUpdate} // ✅ NEW: Pass like callback
       />
     </div>
   );

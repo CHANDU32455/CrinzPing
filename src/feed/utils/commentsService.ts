@@ -5,6 +5,7 @@ export interface Comment {
   timestamp: number;
   userId: string;
 }
+const GET_COMMENTS_API_URL = `${import.meta.env.VITE_BASE_API_URL}/getPostComments`;
 
 export const fetchComments = async (
   crinzId: string, 
@@ -19,7 +20,7 @@ export const fetchComments = async (
   const bodyPayload: any = { crinzId, limit };
   if (lastKey) bodyPayload.lastKey = lastKey;
 
-  const res = await fetch(import.meta.env.VITE_GET_COMMENTS_API_URL, {
+  const res = await fetch(GET_COMMENTS_API_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -27,6 +28,7 @@ export const fetchComments = async (
     },
     body: JSON.stringify(bodyPayload),
   });
+  console.log(res);
 
   if (!res.ok) {
     if (res.status === 401) {
