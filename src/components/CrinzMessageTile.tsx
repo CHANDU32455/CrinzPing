@@ -1,4 +1,5 @@
 import React from 'react';
+import '../feed/css/GlobalFeed.css';
 import { useInViewport } from '../feed/tabs/personalizedfeed/Parts/useInViewPort';
 import ProfilePicture from './ProfilePicture';
 import EngagementButtons from '../feed/tabs/personalizedfeed/Parts/EngagementButtons';
@@ -18,53 +19,77 @@ const CrinzTile: React.FC<CrinzTileProps> = ({ item, onComment, onShare, onLikeU
     // This will be handled by EngagementButtons with the callback
   }, []);
 
+  const formatRelativeTime = React.useCallback((iso: string) => {
+    const then = new Date(iso).getTime();
+    const now = Date.now();
+    const diffMs = Math.max(0, now - then);
+    const minutes = Math.floor(diffMs / (60 * 1000));
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  }, []);
+
+  const relative = formatRelativeTime(item.timestamp);
+
   return (
-    <div
-      ref={ref}
-      className="bg-gradient-to-r from-cyan-900 to-blue-900 border border-cyan-700 rounded-2xl p-4 md:p-6 w-full shadow-lg"
-    >
+    <div ref={ref} className="feed-post">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3 min-w-0">
-          <ProfilePicture
-            src={item.user?.profilePic}
-            alt={item.user?.userName || 'User'}
-            fallbackText={item.user?.userName || 'U'}
-            borderColor="border-cyan-500"
-          />
-          <div className="min-w-0 flex-1">
-            <p className="text-white font-semibold text-base truncate">
-              {item.user?.userName || 'Anonymous'}
-            </p>
-            {item.user?.tagline && (
-              <p className="text-cyan-200 text-sm italic truncate">"{item.user.tagline}"</p>
-            )}
-            <p className="text-cyan-300 text-sm">
+      <div className="post-header" style={{ justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+          <div className="user-avatar">
+            <ProfilePicture
+              src={item.user?.profilePic}
+              alt={item.user?.userName || 'User'}
+              fallbackText={item.user?.userName || 'U'}
+              borderColor="border-cyan-500"
+            />
+          </div>
+          <div className="user-info">
+            <span className="username">{item.user?.userName || 'Anonymous'}</span>
+            <span className="timestamp">
               {new Date(item.timestamp).toLocaleDateString('en-US', {
                 month: 'short',
                 day: 'numeric',
                 year: 'numeric'
               })}
-            </p>
+            </span>
           </div>
         </div>
-
-        <span className="px-3 py-1 bg-cyan-800 bg-opacity-50 rounded-full text-xs font-medium border border-cyan-600 flex-shrink-0 ml-2">
-          CRINZ
+        <span
+          style={{
+            padding: '4px 10px',
+            borderRadius: '9999px',
+            fontSize: '0.75rem',
+            border: '1px solid rgba(0, 255, 204, 0.3)',
+            background: 'rgba(0, 255, 204, 0.08)',
+            color: '#00ffcc',
+            whiteSpace: 'nowrap'
+          }}
+          aria-label="Crinz tag and relative time"
+        >
+          CRINZ • {relative}
         </span>
       </div>
 
       {/* Content */}
-      <p className="text-white text-base mb-4 leading-relaxed italic">"{item.content}"</p>
+      <div className="post-content">
+        <p>"{item.content}"</p>
+      </div>
 
       {/* Engagement Buttons */}
-      <EngagementButtons
-        item={item}
-        onLike={handleLike}
-        onShare={onShare}
-        onComment={onComment}
-        onLikeUpdate={onLikeUpdate} // ✅ NEW: Pass like callback
-      />
+      <div style={{ justifyContent: 'center' }}>
+        <EngagementButtons
+          item={item}
+          onLike={handleLike}
+          onShare={onShare}
+          onComment={onComment}
+          onLikeUpdate={onLikeUpdate} // ✅ NEW: Pass like callback
+          centered
+        />
+      </div>
     </div>
   );
 };

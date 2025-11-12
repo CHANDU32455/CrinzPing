@@ -48,9 +48,29 @@ export const useVideoPlayer = () => {
   const playStates = useRef<Map<string, boolean>>(new Map());
   const preloadedVideos = useRef<Map<string, boolean>>(new Map());
   const globalMutePreference = useRef<boolean | null>(null);
+  const globalPrefInitialized = useRef<boolean>(false);
+
+  // Initialize global mute preference from localStorage once (per hook instance)
+  const ensureGlobalPrefInitialized = useCallback(() => {
+    if (globalPrefInitialized.current) return;
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const saved = window.localStorage.getItem('crinz_global_mute');
+        if (saved !== null) {
+          globalMutePreference.current = saved === 'true';
+        }
+      }
+    } catch {
+      // ignore storage errors
+    } finally {
+      globalPrefInitialized.current = true;
+    }
+  }, []);
 
   const registerVideo = useCallback((id: string, video: HTMLVideoElement | null) => {
     if (video) {
+      // Make sure we have up-to-date global preference before registering
+      ensureGlobalPrefInitialized();
       videoRefs.current.set(id, video);
       const shouldMute = globalMutePreference.current !== null ? globalMutePreference.current : true;
       mutedStates.current.set(id, shouldMute);
@@ -61,7 +81,7 @@ export const useVideoPlayer = () => {
     } else {
       videoRefs.current.delete(id);
     }
-  }, []);
+  }, [ensureGlobalPrefInitialized]);
 
   const preloadVideo = useCallback((id: string, videoUrl: string) => {
     if (preloadedVideos.current.get(id)) return;
@@ -102,6 +122,14 @@ export const useVideoPlayer = () => {
       video.muted = newMutedState;
       mutedStates.current.set(id, newMutedState);
       globalMutePreference.current = newMutedState;
+      // Persist globally so upcoming videos inherit the preference
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem('crinz_global_mute', String(newMutedState));
+        }
+      } catch {
+        // ignore storage errors
+      }
       videoRefs.current.forEach((vid, vidId) => {
         if (vidId !== id) {
           vid.muted = newMutedState;
@@ -114,7 +142,21 @@ export const useVideoPlayer = () => {
   }, []);
 
   const isMuted = useCallback((id: string) => {
-    return mutedStates.current.get(id) ?? true;
+    // Ensure we read any persisted preference before answering
+    if (mutedStates.current.get(id) === undefined) {
+      // Attempt to initialize global preference once if not set
+      try {
+        if (globalMutePreference.current === null && typeof window !== 'undefined' && window.localStorage) {
+          const saved = window.localStorage.getItem('crinz_global_mute');
+          if (saved !== null) {
+            globalMutePreference.current = saved === 'true';
+          }
+        }
+      } catch {
+        // ignore storage errors
+      }
+    }
+    return mutedStates.current.get(id) ?? (globalMutePreference.current ?? true);
   }, []);
 
   const isPlaying = useCallback((id: string) => {

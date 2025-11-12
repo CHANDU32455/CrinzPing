@@ -3,7 +3,7 @@ import { usePersonalizedData } from "./usePersonalizedData";
 import { useMediaManager } from "./Parts/useMediaManager";
 import SyncStatusIndicator from "../../utils/SyncStatusIndicator";
 import CommentModal from "../../commentModal";
-import CentralizedShareModal from "../../../components/CentralizedShareModal";
+import ShareComponent from "../../ShareComponent";
 import PostTile from "../../../components/PostTile";
 import ReelTile from "../../../components/ReelTile";
 import CrinzTile from "../../../components/CrinzMessageTile";
@@ -33,10 +33,12 @@ export const PersonalizedFeed = () => {
     isOpen: boolean;
     contentId: string;
     contentType: 'post' | 'reel' | 'crinz_message';
-    content: {
-      userName: string;
-      message: string;
-    };
+    userName: string;
+    message: string;
+    timestamp: string | number;
+    likeCount: number;
+    commentCount: number;
+    mediaUrl?: string;
   } | null>(null);
 
   const handleLoadMore = useCallback(() => {
@@ -75,14 +77,17 @@ export const PersonalizedFeed = () => {
   }, []);
 
   const handleOpenShare = useCallback((item: any) => {
+    const mediaUrl = Array.isArray(item.files) ? item.files.find((f: any) => f.type?.startsWith('video/') || f.type?.startsWith('image/'))?.url : undefined;
     setShareModal({
       isOpen: true,
       contentId: item.id,
       contentType: item.type,
-      content: {
-        userName: item.user?.userName || 'Anonymous',
-        message: item.content,
-      },
+      userName: item.user?.userName || 'Anonymous',
+      message: item.content,
+      timestamp: item.timestamp || Date.now(),
+      likeCount: item.likeCount ?? item.likes ?? 0,
+      commentCount: item.commentCount ?? item.comments ?? 0,
+      mediaUrl
     });
   }, []);
 
@@ -280,12 +285,17 @@ export const PersonalizedFeed = () => {
         )}
 
         {shareModal && (
-          <CentralizedShareModal
+          <ShareComponent
             isOpen={shareModal.isOpen}
             onClose={handleCloseShare}
-            contentId={shareModal.contentId}
+            postId={shareModal.contentId}
+            userName={shareModal.userName}
+            message={shareModal.message}
+            timestamp={shareModal.timestamp}
+            likeCount={shareModal.likeCount}
+            commentCount={shareModal.commentCount}
             contentType={shareModal.contentType}
-            content={shareModal.content}
+            mediaUrl={shareModal.mediaUrl}
           />
         )}
       </div>

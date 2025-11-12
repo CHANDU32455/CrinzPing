@@ -8,6 +8,7 @@ interface EngagementButtonsProps {
   onShare: () => void;
   onComment: () => void;
   onLikeUpdate?: (contentId: string, newLikeCount: number, isLiked: boolean) => void; // ✅ NEW: Like callback
+  centered?: boolean;
 }
 
 const EngagementButtons: React.FC<EngagementButtonsProps> = ({
@@ -15,7 +16,8 @@ const EngagementButtons: React.FC<EngagementButtonsProps> = ({
   onLike,
   onShare,
   onComment,
-  onLikeUpdate // ✅ NEW: Like callback prop
+  onLikeUpdate, // ✅ NEW: Like callback prop
+  centered = false
 }) => {
   const auth = useAuth();
   const userId = auth.user?.profile?.sub;
@@ -88,8 +90,8 @@ const EngagementButtons: React.FC<EngagementButtonsProps> = ({
   }, [onShare]);
 
   return (
-    <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-700">
-      <div className="flex items-center gap-4">
+    <div className={`flex items-center mt-4 pt-4 border-t border-gray-700 w-full ${centered ? 'justify-center' : 'justify-between'}`}>
+      <div className={`flex items-center gap-6 ${centered ? 'justify-center w-auto' : 'justify-between w-full'}`}>
         {/* Like Button */}
         <button
           onClick={handleLike}

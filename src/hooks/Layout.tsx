@@ -13,16 +13,6 @@ import Extras from "../pages/Extras";
 
 import "../css/Layout.css";
 
-// Use localStorage to persist mounted pages across refreshes
-const getMountedPages = (): Set<string> => {
-  const stored = localStorage.getItem("mountedPages");
-  return new Set(stored ? JSON.parse(stored) : ["/"]);
-};
-
-const saveMountedPages = (pages: Set<string>) => {
-  localStorage.setItem("mountedPages", JSON.stringify([...pages]));
-};
-
 const Layout: React.FC = () => {
   const auth = useAuth();
   const location = useLocation();
@@ -30,8 +20,7 @@ const Layout: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const [isDesktop, setIsDesktop] = useState(false);
-  const [activePages, setActivePages] = useState<Set<string>>(getMountedPages()); // Start with all mounted pages
-  const [mountedPages, setMountedPages] = useState<Set<string>>(getMountedPages());
+  // Removed mounted/active pages caching to avoid keeping pages always mounted
   const menuRef = useRef<HTMLDivElement>(null);
 
   const handleSignIn = () => {
@@ -64,43 +53,7 @@ const Layout: React.FC = () => {
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
 
-  // Track active pages and mark as mounted
-  useEffect(() => {
-    const currentPath = location.pathname;
-    
-    // Find if this is a main page
-    const mainPage = mainPages.find(page => isActiveRoute(page.path));
-    
-    if (mainPage) {
-      // Mark this page as mounted (persist across refreshes)
-      const newMountedPages = new Set(mountedPages);
-      newMountedPages.add(mainPage.path);
-      setMountedPages(newMountedPages);
-      saveMountedPages(newMountedPages);
-      
-      // On page refresh, keep ALL mounted pages active for instant navigation
-      const isPageRefresh = performance.navigation.type === performance.navigation.TYPE_RELOAD || 
-                           !sessionStorage.getItem('hasInitialized');
-      
-      if (isPageRefresh) {
-        // Keep all previously mounted pages active for instant switching
-        setActivePages(newMountedPages);
-        sessionStorage.setItem('hasInitialized', 'true');
-      } else {
-        // Normal navigation - ensure current page is active
-        setActivePages(prev => {
-          const newSet = new Set(prev);
-          newSet.add(mainPage.path);
-          return newSet;
-        });
-      }
-
-      // Store last visited main page for potential recovery
-      if (mainPage.path !== "/") {
-        sessionStorage.setItem("lastMainPage", currentPath);
-      }
-    }
-  }, [location.pathname]);
+  // Removed effect that persisted and tracked mounted pages
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -108,20 +61,7 @@ const Layout: React.FC = () => {
 
   const handleNavigation = (path: string) => {
     setIsMenuOpen(false);
-    
-    // Mark the target page as active immediately
-    setActivePages(prev => {
-      const newSet = new Set(prev);
-      newSet.add(path);
-      return newSet;
-    });
 
-    // Mark as mounted
-    const newMountedPages = new Set(mountedPages);
-    newMountedPages.add(path);
-    setMountedPages(newMountedPages);
-    saveMountedPages(newMountedPages);
-    
     // Navigate immediately
     navigate(path);
   };
@@ -142,8 +82,8 @@ const Layout: React.FC = () => {
     { path: "/extras", label: "Extras", icon: "👻", component: Extras },
   ];
 
-  // Check if current route is one of the main pages
-  const isMainPage = mainPages.some(page => isActiveRoute(page.path));
+  // Check if current route is one of the main pages (no longer used for rendering)
+  // const isMainPage = mainPages.some(page => isActiveRoute(page.path));
 
   // Show hamburger only when authenticated AND on mobile/tablet
   const showHamburger = auth.isAuthenticated && !isDesktop;
@@ -223,17 +163,7 @@ const Layout: React.FC = () => {
                 {hoveredItem === item.path && (
                   <div className="menu-tooltip">Go to {item.label}</div>
                 )}
-                {mountedPages.has(item.path) && (
-                  <span style={{ 
-                    fontSize: "0.6rem", 
-                    opacity: 0.7, 
-                    marginLeft: "auto",
-                    color: "#00ff88",
-                    animation: "pulse 2s infinite"
-                  }}>
-                    ●
-                  </span>
-                )}
+                {/* Removed mounted indicator */}
               </button>
             ))}
           </nav>
@@ -243,33 +173,13 @@ const Layout: React.FC = () => {
               <span className="status-dot"></span>
               Signed In
             </div>
-            <div style={{ fontSize: "0.7rem", opacity: 0.6, marginTop: "0.5rem" }}>
-              Visited pages: {mountedPages.size}
-            </div>
           </div>
         </div>
       )}
 
       <main className={`main-content ${location.pathname === '/feed/reelsfeed' ? 'reels-feed-page' : ''} ${showSidebarMenu && isDesktop ? 'has-sidebar' : ''}`}>
-        {/* Render main pages without remounting - only show visited pages */}
-        {isMainPage ? (
-          <div className="pages-container">
-            {mainPages
-              .filter(page => activePages.has(page.path)) // Only render currently active pages
-              .map((page) => (
-                <div
-                  key={page.path}
-                  className={`page-content ${isActiveRoute(page.path) ? 'active' : 'hidden'}`}
-                >
-                  {React.createElement(page.component)}
-                </div>
-              ))
-            }
-          </div>
-        ) : (
-          // For other routes (profile pages, settings, etc.), use normal Outlet
-          <Outlet />
-        )}
+        {/* Always render only the active route */}
+        <Outlet />
       </main>
 
       {/* Menu Overlay - Only show when authenticated and on mobile/tablet */}

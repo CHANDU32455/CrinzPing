@@ -24,7 +24,8 @@ const ReelTile: React.FC<ReelTileProps> = ({ item, onComment, onShare, onLikeUpd
   const [showPlayButton, setShowPlayButton] = useState(true);
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [videoError, setVideoError] = useState(false);
-  const [videoAspectRatio, setVideoAspectRatio] = useState<number>(16 / 9);
+  // Default to vertical reel aspect (9:16) so space is reserved before metadata
+  const [videoAspectRatio, setVideoAspectRatio] = useState<number>(9 / 16);
   const [containerHeight, setContainerHeight] = useState<number>(400);
 
   // Calculate container height based on aspect ratio
@@ -247,10 +248,14 @@ const ReelTile: React.FC<ReelTileProps> = ({ item, onComment, onShare, onLikeUpd
 
             {/* Loading State */}
             {!videoLoaded && !videoError && (
-              <div className="absolute inset-0 bg-gray-800 rounded-xl flex items-center justify-center z-10">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto mb-2"></div>
-                  <p className="text-gray-400 text-sm">Loading video...</p>
+              <div className="absolute inset-0 rounded-xl z-10">
+                {/* Skeleton placeholder for reel body */}
+                <div className="w-full h-full bg-gray-800/70 animate-pulse rounded-xl border border-purple-700/20 flex items-center justify-center">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-purple-700/30" />
+                    <div className="h-3 w-28 rounded bg-purple-700/30" />
+                    <div className="h-3 w-40 rounded bg-purple-700/20" />
+                  </div>
                 </div>
               </div>
             )}

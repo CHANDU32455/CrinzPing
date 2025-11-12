@@ -20,6 +20,10 @@ export default function CentralizedShareModal({
 }: CentralizedShareModalProps) {
   const [copied, setCopied] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+  const [isEntering, setIsEntering] = useState(false);
+  const [dragStartY, setDragStartY] = useState<number | null>(null);
+  const [dragTranslateY, setDragTranslateY] = useState(0);
+  const DRAG_CLOSE_THRESHOLD = 120;
 
   const shareUrl = `${window.location.origin}/share/${contentType}/${contentId}`;
 
@@ -28,6 +32,7 @@ export default function CentralizedShareModal({
     setIsClosing(true);
     setTimeout(() => {
       setIsClosing(false);
+      setDragTranslateY(0);
       onClose();
     }, 300);
   };
@@ -43,6 +48,10 @@ export default function CentralizedShareModal({
     if (isOpen) {
       document.addEventListener('keydown', handleEscape);
       document.body.style.overflow = 'hidden';
+      // kick off enter animation on mount
+      setIsEntering(true);
+      const t = requestAnimationFrame(() => setIsEntering(false));
+      return () => cancelAnimationFrame(t);
     }
 
     return () => {
@@ -111,15 +120,49 @@ export default function CentralizedShareModal({
       <div 
         className={`
           fixed left-0 right-0 bg-gray-900 rounded-t-3xl flex flex-col transition-transform duration-300
-          ${isClosing ? 'translate-y-full' : 'translate-y-0'}
+          ${isClosing || isEntering ? 'translate-y-full' : 'translate-y-0'}
           h-[70vh] max-h-[70vh]
           sm:inset-auto sm:top-1/2 sm:left-1/2 sm:transform sm:-translate-x-1/2 sm:-translate-y-1/2 
           sm:rounded-2xl sm:max-w-md sm:w-full sm:max-h-[80vh] sm:h-auto
         `}
         onClick={(e) => e.stopPropagation()}
+        style={{
+          // Apply extra drag translate only on mobile layout
+          transform: undefined,
+        }}
       >
         {/* Mobile drag handle */}
-        <div className="sm:hidden pt-3 px-4">
+        <div
+          className="sm:hidden pt-3 px-4"
+          onTouchStart={(e) => {
+            const y = e.touches[0]?.clientY ?? 0;
+            setDragStartY(y);
+            setDragTranslateY(0);
+          }}
+          onTouchMove={(e) => {
+            if (dragStartY === null) return;
+            const currentY = e.touches[0]?.clientY ?? 0;
+            const delta = Math.max(0, currentY - dragStartY);
+            setDragTranslateY(delta);
+            // Manually translate the sheet while dragging (mobile only)
+            (e.currentTarget.parentElement as HTMLElement).style.transform = `translateY(${delta}px)`;
+          }}
+          onTouchEnd={(e) => {
+            const parent = e.currentTarget.parentElement as HTMLElement;
+            if (dragTranslateY > DRAG_CLOSE_THRESHOLD) {
+              // snap closed
+              parent.style.transform = ''; // let closing animation handle it
+              setDragStartY(null);
+              setDragTranslateY(0);
+              handleClose();
+              return;
+            }
+            // snap back
+            parent.style.transform = 'translateY(0px)';
+            setDragStartY(null);
+            setDragTranslateY(0);
+          }}
+        >
           <div className="w-12 h-1 bg-gray-600 rounded-full mx-auto mb-3"></div>
         </div>
         
