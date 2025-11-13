@@ -7,6 +7,7 @@ interface FollowProps {
   isOwnProfile?: boolean;
   onShowFollowers?: () => void;
   onShowFollowing?: () => void;
+  allowActions?: boolean;
 }
 
 const Follow: React.FC<FollowProps> = ({ 

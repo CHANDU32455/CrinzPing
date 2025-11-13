@@ -2,7 +2,7 @@
 import { useParams } from "react-router-dom";
 import BaseProfileView from "./BaseProfileView";
 
-export default function OthersProfileView() { // Capital O
+export default function OthersProfileView() {
   const { sub } = useParams<{ sub: string }>();
 
   if (!sub) {
@@ -17,4 +17,4 @@ export default function OthersProfileView() { // Capital O
       showSignout={false}
     />
   );
-};
+}

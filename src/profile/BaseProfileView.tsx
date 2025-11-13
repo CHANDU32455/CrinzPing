@@ -1,8 +1,7 @@
 import React, { useState, useMemo, useCallback } from "react";
 import { useAuth } from "react-oidc-context";
 import { useNavigate } from "react-router-dom";
-import { useUserDetails, type CrinzMessage, type UserDetails } from "../hooks/UserInfo";
-import { encodePostData } from "../utils/encodeDecode";
+import { useUserDetails } from "../hooks/UserInfo";
 import Follow from "../following/Follow";
 import UserMemes from "./profilePosts";
 import UserReels from "./profileReels";
@@ -21,45 +20,30 @@ interface BaseProfileProps {
   showSignout?: boolean;
   onEdit?: () => void;
   allowActions?: boolean;
-  onPostClick?: (post: CrinzMessage) => void;
-  userDetails?: UserDetails;
-  crinzMessages?: CrinzMessage[];
-  loadingUser?: boolean;
-  loadingCrinz?: boolean;
+  currentUserId?: string;
 }
 
 type ContentType = 'messages' | 'posts' | 'reels';
-
-const POSTS_PER_PAGE = 5;
 
 const BaseProfileView: React.FC<BaseProfileProps> = ({
   userSub,
   showEdit,
   onEdit,
-  onPostClick,
-  userDetails: preloadedUserDetails,
-  crinzMessages: preloadedCrinzMessages,
-  loadingUser: preloadedLoadingUser = false,
-  loadingCrinz: preloadedLoadingCrinz = false,
+  allowActions, // Fixed: Now used in the component
+  currentUserId,
 }) => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<ContentType>('messages');
-  const [loadedTabs, setLoadedTabs] = useState<Set<ContentType>>(new Set(['messages']));
   const [copied, setCopied] = useState(false);
 
   const {
-    userDetails: hookUserDetails,
-    crinzMessages: hookCrinzMessages,
-    loadingUser: hookLoadingUser,
-    loadingCrinz: hookLoadingCrinz,
-    lastKey,
-  } = useUserDetails(preloadedUserDetails ? undefined : userSub);
+    userDetails,
+    crinzMessages,
+    loadingUser,
+    loadingCrinz,
+  } = useUserDetails(userSub);
 
   const auth = useAuth();
-  const userDetails = preloadedUserDetails || hookUserDetails;
-  const crinzMessages = preloadedCrinzMessages || hookCrinzMessages;
-  const loadingUser = preloadedLoadingUser || hookLoadingUser;
-  const loadingCrinz = preloadedLoadingCrinz || hookLoadingCrinz;
 
   // Memoize the messages to prevent re-renders
   const uniqueMessages = useMemo(() =>
@@ -67,37 +51,16 @@ const BaseProfileView: React.FC<BaseProfileProps> = ({
     [crinzMessages]
   );
 
-  const hasMorePosts = uniqueMessages.length > POSTS_PER_PAGE || lastKey;
-
   const profilePic = userDetails?.profilePic && userDetails.profilePic.startsWith("data:")
     ? userDetails.profilePic
     : userDetails?.profilePic || DEFAULT_AVATAR;
 
-  const handleTabChange = useCallback((tab: ContentType) => {
-    setActiveTab(tab);
-    setLoadedTabs(prev => new Set([...prev, tab]));
-  }, []);
-
   const shareProfile = useCallback(() => {
-    const targetUser = userDetails;
-    if (!targetUser?.userId) return;
+    if (!userDetails?.userId) return;
 
-    const publicData = {
-      userDetails: {
-        userId: targetUser.userId,
-        displayName: targetUser.displayName,
-        profilePic: targetUser.profilePic,
-        email: targetUser.email,
-      },
-      crinzMessages: (crinzMessages || []).slice(0, 5).map(msg => ({
-        crinzId: msg.crinzId,
-        message: msg.message,
-      })),
-    };
-
-    const encoded = encodePostData(publicData);
-    const shareUrl = `${window.location.origin}/public-profile?data=${encoded}`;
-
+    // Simple share with user ID
+    const shareUrl = `${window.location.origin}/profile/${userDetails.userId}`;
+    
     navigator.clipboard.writeText(shareUrl)
       .then(() => {
         setCopied(true);
@@ -106,29 +69,27 @@ const BaseProfileView: React.FC<BaseProfileProps> = ({
       .catch(err => {
         console.error("Failed to copy share URL", err);
       });
-  }, [userDetails, crinzMessages]);
+  }, [userDetails]);
 
   const handleShowFollowers = useCallback(() => {
-    if (userDetails?.userId) {
+    if (userDetails?.userId && allowActions) { // Fixed: Using allowActions
       navigate(`/profile/${userDetails.userId}/followers`);
     }
-  }, [userDetails, navigate]);
+  }, [userDetails, navigate, allowActions]);
 
   const handleShowFollowing = useCallback(() => {
-    if (userDetails?.userId) {
+    if (userDetails?.userId && allowActions) { // Fixed: Using allowActions
       navigate(`/profile/${userDetails.userId}/following`);
     }
-  }, [userDetails, navigate]);
+  }, [userDetails, navigate, allowActions]);
 
-  const handleSeeMore = useCallback(() => {
-    if (onPostClick && userDetails) {
-      onPostClick({ crinzId: "see-more", message: "See All Posts" });
-    } else if (userDetails?.userId) {
-      navigate(`/profile/${userDetails.userId}/more`);
+  const handlePostClick = useCallback((post: any) => {
+    if (allowActions) { // Fixed: Using allowActions
+      navigate(`/profile/${userDetails?.userId}/more?highlight=${post.crinzId}`);
     }
-  }, [onPostClick, userDetails, navigate]);
+  }, [userDetails, navigate, allowActions]);
 
-  if (loadingUser && !preloadedUserDetails) {
+  if (loadingUser) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="flex flex-col items-center">
@@ -155,38 +116,41 @@ const BaseProfileView: React.FC<BaseProfileProps> = ({
               <div className="profile-info-header">
                 <div className="profile-display">
                   <h1 className="profile-name">{userDetails?.displayName || "User"}</h1>
-                  <button
-                    onClick={shareProfile}
-                    className={`profile-share-btn ${copied ? "copied" : ""}`}
-                    title="Share profile"
-                  >
-                    {copied ? "✓" : "🔗"}
-                  </button>
+                  {allowActions && ( // Fixed: Using allowActions
+                    <button
+                      onClick={shareProfile}
+                      className={`profile-share-btn ${copied ? "copied" : ""}`}
+                      title="Share profile"
+                    >
+                      {copied ? "✓" : "🔗"}
+                    </button>
+                  )}
                 </div>
 
-                {showEdit && (
-                  <button onClick={onEdit} className="profile-edit-btn">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                      />
-                    </svg>
-                    Edit
-                  </button>
-                )}
+                <div className="profile-action-buttons">
+                  {showEdit && (
+                    <button onClick={onEdit} className="profile-edit-btn">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                        />
+                      </svg>
+                      Edit
+                    </button>
+                  )}
+                </div>
               </div>
-
               <p className="profile-tagline">{userDetails?.Tagline || ""}</p>
-
               {/* Follow Component */}
               <Follow
                 userId={userDetails?.userId}
                 isOwnProfile={!userSub || userSub === auth.user?.profile?.sub}
                 onShowFollowers={handleShowFollowers}
                 onShowFollowing={handleShowFollowing}
+                allowActions={allowActions}
               />
             </div>
           </div>
@@ -196,7 +160,7 @@ const BaseProfileView: React.FC<BaseProfileProps> = ({
             {(["messages", "posts", "reels"] as ContentType[]).map(tab => (
               <button
                 key={tab}
-                onClick={() => handleTabChange(tab)}
+                onClick={() => setActiveTab(tab)}
                 className={`profile-tab-btn ${activeTab === tab ? "active" : ""}`}
               >
                 {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -219,52 +183,44 @@ const BaseProfileView: React.FC<BaseProfileProps> = ({
                   <p className="profile-empty-text">No Crinz messages yet.</p>
                 </div>
               ) : (
-                uniqueMessages.slice(0, POSTS_PER_PAGE).map(post => (
+                uniqueMessages.slice(0, 5).map(post => (
                   <div
                     key={post.crinzId}
                     className="crinz-message-card"
-                    onClick={() =>
-                      onPostClick
-                        ? onPostClick(post)
-                        : navigate(`/profile/${userDetails?.userId}/more?highlight=${post.crinzId}`)
-                    }
+                    onClick={() => handlePostClick(post)}
                   >
                     <div className="crinz-message-header">
                       <span className="crinz-username">@{userDetails?.displayName || "user"}</span>
                       <div className="crinz-stats">
-                        <span className="crinz-stat">💖 {post.likeCount || 0}</span>
-                        <span className="crinz-stat">💬 {post.commentCount || 0}</span>
+                        <span className="crinz-stat">Likes:  {post.likeCount || 0}</span>
+                        <span className="crinz-stat">Comments : {post.commentCount || 0}</span>
                       </div>
                     </div>
                     <p className="crinz-message-text">{post.message}</p>
                   </div>
                 ))
               )}
-
-              {hasMorePosts && !loadingCrinz && (
-                <div className="profile-see-more-container">
-                  <button onClick={handleSeeMore} className="profile-see-more-btn">
-                    See All Messages ({uniqueMessages.length}+)
-                  </button>
-                </div>
-              )}
             </div>
 
             {/* Posts Tab */}
-            {(activeTab === 'posts' || loadedTabs.has('posts')) && (
-              <div style={{ display: activeTab === 'posts' ? 'block' : 'none' }}>
-                <h2 className="profile-content-title">Posts</h2>
-                <UserMemes userId={userDetails?.userId} />
-              </div>
-            )}
+            <div style={{ display: activeTab === 'posts' ? 'block' : 'none' }}>
+              <h2 className="profile-content-title">Posts</h2>
+              <UserMemes 
+                userId={userDetails?.userId}
+                currentUserId={currentUserId}
+                previewMode={true}
+              />
+            </div>
 
             {/* Reels Tab */}
-            {(activeTab === 'reels' || loadedTabs.has('reels')) && (
-              <div style={{ display: activeTab === 'reels' ? 'block' : 'none' }}>
-                <h2 className="profile-content-title">Reels</h2>
-                <UserReels userId={userDetails?.userId} />
-              </div>
-            )}
+            <div style={{ display: activeTab === 'reels' ? 'block' : 'none' }}>
+              <h2 className="profile-content-title">Reels</h2>
+              <UserReels 
+                userId={userDetails?.userId}
+                currentUserId={currentUserId}
+                previewMode={true}
+              />
+            </div>
           </div>
         </div>
       </div>

@@ -2,21 +2,24 @@ import React from "react";
 import { useParams } from "react-router-dom";
 import { useAuth } from "react-oidc-context";
 import AuthenticatedProfileView from "./AuthenticatedProfileView";
-import PublicProfileView from "./PublicProfileView";
+import OthersProfileView from "./OthersProfileView";
 
 const ProfilePage: React.FC = () => {
   const { sub } = useParams();
   const auth = useAuth();
 
-  if (!auth.isAuthenticated && !sub) {
-    return <button onClick={() => auth.signinRedirect()}>Sign In</button>;
-  }
-
-  if (auth.isAuthenticated && !sub) {
+  // If no user is specified and user is authenticated, show their own profile
+  if (!sub && auth.isAuthenticated) {
     return <AuthenticatedProfileView />;
   }
 
-  return <PublicProfileView />;
+  // If user is specified, show that user's profile (others profile)
+  if (sub) {
+    return <OthersProfileView />;
+  }
+
+  // If not authenticated and no user specified, show sign in
+  return <button onClick={() => auth.signinRedirect()}>Sign In</button>;
 };
 
 export default ProfilePage;

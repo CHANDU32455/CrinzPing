@@ -7,9 +7,9 @@ import { useUserDetails } from "../hooks/UserInfo";
 const AuthenticatedProfileView: React.FC = () => {
   const auth = useAuth();
   const navigate = useNavigate();
-  const { userDetails, userError } = useUserDetails(auth.user?.profile?.sub); // 👈 include error
+  const { userDetails, userError } = useUserDetails(auth.user?.profile?.sub);
 
-  // 👇 redirect first-time users (no record in DB)
+  // Redirect first-time users (no record in DB)
   useEffect(() => {
     if (userError?.response?.status === 404) {
       console.log("ℹ️ no user record found → redirecting to /postUserDetails");
@@ -31,10 +31,11 @@ const AuthenticatedProfileView: React.FC = () => {
     <div style={{ position: "relative" }}>
       <BaseProfileView
         userSub={auth.user?.profile?.sub}
-        showEdit
-        showSignout
+        showEdit={true}
+        showSignout={true}
         onEdit={handleEdit}
-        allowActions
+        allowActions={true}
+        currentUserId={auth.user?.profile?.sub}
       />
     </div>
   );

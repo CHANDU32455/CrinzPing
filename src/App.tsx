@@ -24,7 +24,6 @@ import CreatePost from "./feed/tabs/createPost";
 import CreateReel from "./feed/tabs/createReel";
 
 import ProfileMorePosts from "./profile/ProfileMorePosts";
-import PublicProfileEncodedView from "./profile/PublicProfileView";
 import OthersProfileView from "./profile/OthersProfileView";
 
 import RegisterCallback from "./components/RegisterCallback";
@@ -54,7 +53,6 @@ const App = () => {
             <Route path="/" element={<Home />} />
             <Route path="/about" element={<AboutApp />} />
             <Route path="/post/:encoded" element={<SharedCrinzFeedPost />} />
-            <Route path="/public-profile" element={<PublicProfileEncodedView />} />
             <Route path="/help" element={<HelpPage />} />
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/privacySettings" element={<PrivacySettingsPage />} />
