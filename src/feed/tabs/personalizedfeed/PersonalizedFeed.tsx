@@ -10,6 +10,8 @@ import CrinzTile from "../../../components/CrinzMessageTile";
 import { FeedItemSkeleton } from "./Parts/FeedItemSkeleton";
 import { useAuth } from "react-oidc-context";
 import { contentManager } from "../../../utils/Posts_Reels_Stats_Syncer";
+import InFeedAd from "../../../ads/InFeedAd_widthed";
+import { APP_CONFIG } from "../../../config/appConfig";
 
 export const PersonalizedFeed = () => {
   const auth = useAuth();
@@ -172,7 +174,7 @@ export const PersonalizedFeed = () => {
 
         {/* Feed Content */}
         <div className="space-y-6 md:space-y-8">
-          {content.map((item) => (
+          {content.map((item, index) => (
             <div key={item.id} className="scroll-m-20">
               {item.type === 'post' && (
                 <PostTile
@@ -197,6 +199,13 @@ export const PersonalizedFeed = () => {
                   onShare={() => handleOpenShare(item)}
                   onLikeUpdate={handleLikeUpdate} // ✅ NEW: Pass like callback
                 />
+              )}
+
+              {/* ✅ AD UNIT - Show after every 3 tiles only if ads enabled */}
+              {APP_CONFIG.ads && (index + 1) % 3 === 0 && (
+                <div key={`ad-${item.id}`} className="mt-6 mb-6">
+                  <InFeedAd />
+                </div>
               )}
             </div>
           ))}

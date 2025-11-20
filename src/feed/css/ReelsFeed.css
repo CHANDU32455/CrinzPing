@@ -43,6 +43,7 @@
 .reel-video-container {
   position: relative;
   width: 100%;
+  max-width:max-content;
   height: 100vh;
   background: #000;
   overflow: hidden;
@@ -573,4 +574,33 @@ body.modal-open {
   .reel-info-overlay {
     padding: 12px 14px 16px 14px;
   }
+}
+
+/* Add to your ReelsFeed.css */
+.reel-ad-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  max-width: fit-content;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.reel-ad-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ad-label {
+  color: #666;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }

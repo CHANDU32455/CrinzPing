@@ -6,7 +6,8 @@ import CommentModal from "../commentModal";
 import { contentManager } from "../../utils/Posts_Reels_Stats_Syncer";
 import { useAuth } from "react-oidc-context";
 import "../css/ReelsFeed.css";
-
+import { APP_CONFIG } from "../../config/appConfig";
+import AdUnit from "../../ads/GeneralAdUnit";
 interface LocalReel extends Reel {
   isLiked?: boolean;
   user?: {
@@ -15,6 +16,15 @@ interface LocalReel extends Reel {
     tagline: string;
   };
 }
+
+// Track video playback states globally
+interface VideoPlaybackState {
+  currentTime: number;
+  isPlaying: boolean;
+  hasBeenViewed: boolean;
+}
+
+const videoPlaybackStates = new Map<number, VideoPlaybackState>();
 
 function ReelsFeed() {
   const navigate = useNavigate();
@@ -39,6 +49,7 @@ function ReelsFeed() {
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
+  const hasInteractedRef = useRef<boolean>(false);
 
   // Track muted state for each video individually
   const mutedStatesRef = useRef<boolean[]>([]);
@@ -67,6 +78,17 @@ function ReelsFeed() {
 
     // Initialize muted states for all reels
     mutedStatesRef.current = new Array(reels.length).fill(false);
+
+    // Initialize playback states
+    reels.forEach((_, index) => {
+      if (!videoPlaybackStates.has(index)) {
+        videoPlaybackStates.set(index, {
+          currentTime: 0,
+          isPlaying: false,
+          hasBeenViewed: false
+        });
+      }
+    });
   }, [reels]);
 
   // Handle modals
@@ -74,7 +96,16 @@ function ReelsFeed() {
     if (commentModal || shareReel) {
       document.body.classList.add('modal-open');
       if (currentPlayingIndex !== -1) {
-        videoRefs.current[currentPlayingIndex]?.pause();
+        const video = videoRefs.current[currentPlayingIndex];
+        if (video) {
+          // Save current playback state before pausing
+          videoPlaybackStates.set(currentPlayingIndex, {
+            currentTime: video.currentTime,
+            isPlaying: false,
+            hasBeenViewed: true
+          });
+          video.pause();
+        }
       }
     } else {
       document.body.classList.remove('modal-open');
@@ -84,20 +115,42 @@ function ReelsFeed() {
     }
   }, [commentModal, shareReel, currentPlayingIndex, isManuallyPaused]);
 
-  // Safe video playback with proper audio management
+  // Safe video playback with proper audio management and resume from saved time
   const playVideoSafely = async (index: number) => {
     const video = videoRefs.current[index];
-    if (!video || !video.paused) return;
+    if (!video) return;
+
+    const playbackState = videoPlaybackStates.get(index) || {
+      currentTime: 0,
+      isPlaying: false,
+      hasBeenViewed: false
+    };
 
     try {
-      // Reset video state first
-      video.currentTime = 0;
+      // Set current time from saved state if video was previously watched
+      if (playbackState.hasBeenViewed && playbackState.currentTime > 0) {
+        video.currentTime = playbackState.currentTime;
+      } else {
+        // Fresh view - start from beginning
+        video.currentTime = 0;
+        videoPlaybackStates.set(index, {
+          ...playbackState,
+          hasBeenViewed: true
+        });
+      }
 
       // Try playing with audio first
       video.muted = false;
       await video.play();
 
-      console.log(`✅ Video ${index} playing with audio`);
+      // Update playback state
+      videoPlaybackStates.set(index, {
+        ...playbackState,
+        isPlaying: true,
+        hasBeenViewed: true
+      });
+
+      console.log(`✅ Video ${index} playing with audio from ${video.currentTime}s`);
 
     } catch (error) {
       console.log(`🔇 Video ${index} autoplay prevented, trying muted`);
@@ -107,11 +160,34 @@ function ReelsFeed() {
         video.muted = true;
         await video.play();
         mutedStatesRef.current[index] = true;
-        console.log(`✅ Video ${index} playing muted`);
+        videoPlaybackStates.set(index, {
+          ...playbackState,
+          isPlaying: true,
+          hasBeenViewed: true
+        });
+        console.log(`✅ Video ${index} playing muted from ${video.currentTime}s`);
       } catch (mutedError) {
         console.log(`❌ Video ${index} failed to play even muted`);
         // Video completely failed, show play button overlay
+        videoPlaybackStates.set(index, {
+          ...playbackState,
+          isPlaying: false
+        });
       }
+    }
+  };
+
+  // Track video time updates to save progress
+  const handleVideoTimeUpdate = (index: number) => {
+    const video = videoRefs.current[index];
+    if (!video) return;
+
+    const playbackState = videoPlaybackStates.get(index);
+    if (playbackState && video.currentTime !== playbackState.currentTime) {
+      videoPlaybackStates.set(index, {
+        ...playbackState,
+        currentTime: video.currentTime
+      });
     }
   };
 
@@ -129,7 +205,16 @@ function ReelsFeed() {
         if (visibleVideos.length === 0) {
           // No videos visible, pause current
           if (currentPlayingIndex !== -1) {
-            videoRefs.current[currentPlayingIndex]?.pause();
+            const video = videoRefs.current[currentPlayingIndex];
+            if (video) {
+              // Save current time before pausing
+              videoPlaybackStates.set(currentPlayingIndex, {
+                currentTime: video.currentTime,
+                isPlaying: false,
+                hasBeenViewed: true
+              });
+              video.pause();
+            }
             setCurrentPlayingIndex(-1);
           }
           return;
@@ -154,9 +239,17 @@ function ReelsFeed() {
 
         // Only switch if we have a new centered video
         if (mostCenteredIndex !== -1 && mostCenteredIndex !== currentPlayingIndex && !isManuallyPaused && !commentModal && !shareReel) {
-          // Pause current video
+          // Pause current video and save state
           if (currentPlayingIndex !== -1) {
-            videoRefs.current[currentPlayingIndex]?.pause();
+            const currentVideo = videoRefs.current[currentPlayingIndex];
+            if (currentVideo) {
+              videoPlaybackStates.set(currentPlayingIndex, {
+                currentTime: currentVideo.currentTime,
+                isPlaying: false,
+                hasBeenViewed: true
+              });
+              currentVideo.pause();
+            }
           }
 
           // Play new centered video
@@ -199,10 +292,20 @@ function ReelsFeed() {
     const video = videoRefs.current[index];
     if (!video) return;
 
+    hasInteractedRef.current = true;
+
     if (video.paused) {
       // Pause currently playing video if different
       if (currentPlayingIndex !== -1 && currentPlayingIndex !== index) {
-        videoRefs.current[currentPlayingIndex]?.pause();
+        const currentVideo = videoRefs.current[currentPlayingIndex];
+        if (currentVideo) {
+          videoPlaybackStates.set(currentPlayingIndex, {
+            currentTime: currentVideo.currentTime,
+            isPlaying: false,
+            hasBeenViewed: true
+          });
+          currentVideo.pause();
+        }
       }
 
       setIsManuallyPaused(false);
@@ -214,19 +317,35 @@ function ReelsFeed() {
           video.muted = false;
           await video.play();
           mutedStatesRef.current[index] = false;
+          videoPlaybackStates.set(index, {
+            currentTime: video.currentTime,
+            isPlaying: true,
+            hasBeenViewed: true
+          });
           console.log(`🔊 Video ${index} unmuted by user click`);
         } catch (error) {
           // If unmuting fails, keep it muted but play
           video.muted = true;
           await video.play();
+          videoPlaybackStates.set(index, {
+            currentTime: video.currentTime,
+            isPlaying: true,
+            hasBeenViewed: true
+          });
           console.log(`🔇 Video ${index} still muted after click`);
         }
       } else {
-        // Normal play
+        // Normal play - resume from saved time
         await playVideoSafely(index);
       }
     } else {
+      // Pause video and save current time
       video.pause();
+      videoPlaybackStates.set(index, {
+        currentTime: video.currentTime,
+        isPlaying: false,
+        hasBeenViewed: true
+      });
       setIsManuallyPaused(true);
       setCurrentPlayingIndex(-1);
     }
@@ -357,11 +476,24 @@ function ReelsFeed() {
     if (el) {
       // Reset muted state when new video element is created
       mutedStatesRef.current[index] = false;
+
+      // Restore playback state if available
+      const playbackState = videoPlaybackStates.get(index);
+      if (playbackState && playbackState.currentTime > 0) {
+        el.currentTime = playbackState.currentTime;
+      }
     }
   };
 
   // Video ended - auto play next with proper audio handling
   const handleVideoEnded = async (index: number) => {
+    // Reset playback state when video ends
+    videoPlaybackStates.set(index, {
+      currentTime: 0,
+      isPlaying: false,
+      hasBeenViewed: true
+    });
+
     if (index < localReels.length - 1) {
       const nextIndex = index + 1;
       const nextVideo = videoRefs.current[nextIndex];
@@ -393,6 +525,138 @@ function ReelsFeed() {
   const handleCloseCommentModal = () => setCommentModal(null);
   const handleCloseShareModal = () => setShareReel(null);
 
+  // Function to intersperse ads after every 2 reels
+const getReelsWithAds = useCallback(() => {
+  const items: React.ReactNode[] = [];
+
+  localReels.forEach((reel, index) => {
+      // Add reel
+      items.push(
+        <div key={reel.postId} className="reel-item" data-reel-index={index}>
+          <div className="reel-video-container">
+            {reel.files[0]?.presignedUrl && (
+              <>
+                <video
+                  ref={handleVideoRef(index)}
+                  className="reel-video"
+                  src={reel.files[0].presignedUrl}
+                  loop
+                  muted={mutedStatesRef.current[index]}
+                  playsInline
+                  onClick={() => handleVideoClick(index)}
+                  onEnded={() => handleVideoEnded(index)}
+                  onError={() => handleVideoError(index)}
+                  onLoadedData={() => handleVideoLoaded(index)}
+                  onTimeUpdate={() => handleVideoTimeUpdate(index)}
+                  preload="metadata"
+                />
+
+                {currentPlayingIndex !== index && (
+                  <div className="reel-play-overlay" onClick={() => handleVideoClick(index)}>
+                    <div className="reel-play-button">
+                      <svg fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    </div>
+                    {mutedStatesRef.current[index] && (
+                      <div className="reel-muted-indicator">🔇</div>
+                    )}
+                  </div>
+                )}
+
+                {/* Show muted indicator when video is playing but muted */}
+                {currentPlayingIndex === index && mutedStatesRef.current[index] && (
+                  <div className="reel-muted-badge">Muted</div>
+                )}
+              </>
+            )}
+
+            <div className="reel-info-overlay">
+              <div className="reel-user-info">
+                <div className="reel-user-avatar" onClick={() => navigate(`/profile/${reel.userId}`)}>
+                  {reel.user?.profilePic ? (
+                    <img
+                      src={reel.user.profilePic}
+                      alt={reel.user.userName}
+                      className="reel-user-avatar-img"
+                    />
+                  ) : (
+                    <span>{reel.user?.userName?.charAt(0)?.toUpperCase() || reel.userId?.charAt(0)?.toUpperCase() || 'U'}</span>
+                  )}
+                </div>
+
+                <div className="reel-caption-container" onClick={(e) => handleCaptionClick(index, e)}>
+                  <p className="reel-username">@{reel.user?.userName || reel.userId?.slice(0, 8) || 'unknown'}</p>
+                  {reel.user?.tagline && (
+                    <p className="reel-user-tagline">"{reel.user.tagline}"</p>
+                  )}
+                  <p className={`reel-caption ${expandedDescriptions.has(index) ? 'expanded' : ''}`}>
+                    {expandedDescriptions.has(index) ? reel.caption : truncateCaption(reel.caption)}
+                  </p>
+
+                  {expandedDescriptions.has(index) && reel.tags && reel.tags.length > 0 && (
+                    <div className="reel-tags">
+                      {reel.tags.map((tag, tagIndex) => (
+                        <span key={tagIndex} className="reel-tag">#{tag}</span>
+                      ))}
+                    </div>
+                  )}
+
+                  {reel.caption.length > 20 && (
+                    <div className="reel-read-more">
+                      {expandedDescriptions.has(index) ? 'Show less' : 'Read more'}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="reel-actions-right">
+              <div className="reel-action-buttons">
+                <div className="reel-action-item">
+                  <div className={`reel-action-button ${reel.isLiked ? 'liked' : ''}`} onClick={() => handleLike(index)}>
+                    <svg fill={reel.isLiked ? "#ff0000" : "currentColor"} viewBox="0 0 24 24">
+                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54z" />
+                    </svg>
+                  </div>
+                  <span className="reel-action-count">{reel.likes}</span>
+                </div>
+
+                <div className="reel-action-item">
+                  <div className="reel-action-button" onClick={() => handleComment(index)}>
+                    <svg fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14zM8 15h2.5l1.5 1.5 1.5-1.5H16v-2.5l1.5-1.5-1.5-1.5V8h-2.5L13 6.5 11.5 8H9v2.5L7.5 12 9 13.5V15z" />
+                    </svg>
+                  </div>
+                  <span className="reel-action-count">{reel.comments}</span>
+                </div>
+
+                <div className="reel-action-item">
+                  <div className="reel-action-button" onClick={() => handleShare(index)}>
+                    <svg fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z" />
+                    </svg>
+                  </div>
+                  <span className="reel-action-count">Share</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+
+      if (APP_CONFIG.ads && (index + 1) % 2 === 0) {
+        items.push(
+          <div key={`ad-${index}`} className="reel-ad-wrapper">
+            <AdUnit />
+          </div>
+        );
+      }
+    });
+
+    return items;
+  }, [localReels, currentPlayingIndex, expandedDescriptions]);
+
   if (error) {
     return (
       <div className="reels-error">
@@ -408,120 +672,7 @@ function ReelsFeed() {
     <>
       <div ref={containerRef} className="reels-feed-container">
         <div className="reels-list">
-          {localReels.map((reel, index) => (
-            <div key={reel.postId} className="reel-item" data-reel-index={index}>
-              <div className="reel-video-container">
-                {reel.files[0]?.presignedUrl && (
-                  <>
-                    <video
-                      ref={handleVideoRef(index)}
-                      className="reel-video"
-                      src={reel.files[0].presignedUrl}
-                      loop
-                      muted={mutedStatesRef.current[index]}
-                      playsInline
-                      onClick={() => handleVideoClick(index)}
-                      onEnded={() => handleVideoEnded(index)}
-                      onError={() => handleVideoError(index)}
-                      onLoadedData={() => handleVideoLoaded(index)}
-                      preload="metadata"
-                    />
-
-                    {currentPlayingIndex !== index && (
-                      <div className="reel-play-overlay" onClick={() => handleVideoClick(index)}>
-                        <div className="reel-play-button">
-                          <svg fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M8 5v14l11-7z" />
-                          </svg>
-                        </div>
-                        {mutedStatesRef.current[index] && (
-                          <div className="reel-muted-indicator">🔇</div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Show muted indicator when video is playing but muted */}
-                    {currentPlayingIndex === index && mutedStatesRef.current[index] && (
-                      <div className="reel-muted-badge">Muted</div>
-                    )}
-                  </>
-                )}
-
-                <div className="reel-info-overlay">
-                  <div className="reel-user-info">
-                    {/* ✅ UPDATED: Use user profile data from API */}
-                    <div className="reel-user-avatar" onClick={() => navigate(`/profile/${reel.userId}`)}>
-                      {reel.user?.profilePic ? (
-                        <img
-                          src={reel.user.profilePic}
-                          alt={reel.user.userName}
-                          className="reel-user-avatar-img"
-                        />
-                      ) : (
-                        <span>{reel.user?.userName?.charAt(0)?.toUpperCase() || reel.userId?.charAt(0)?.toUpperCase() || 'U'}</span>
-                      )}
-                    </div>
-
-                    <div className="reel-caption-container" onClick={(e) => handleCaptionClick(index, e)}>
-                      {/* ✅ UPDATED: Use actual username from user data */}
-                      <p className="reel-username">@{reel.user?.userName || reel.userId?.slice(0, 8) || 'unknown'}</p>
-                      {reel.user?.tagline && (
-                        <p className="reel-user-tagline">"{reel.user.tagline}"</p>
-                      )}
-                      <p className={`reel-caption ${expandedDescriptions.has(index) ? 'expanded' : ''}`}>
-                        {expandedDescriptions.has(index) ? reel.caption : truncateCaption(reel.caption)}
-                      </p>
-
-                      {expandedDescriptions.has(index) && reel.tags && reel.tags.length > 0 && (
-                        <div className="reel-tags">
-                          {reel.tags.map((tag, tagIndex) => (
-                            <span key={tagIndex} className="reel-tag">#{tag}</span>
-                          ))}
-                        </div>
-                      )}
-
-                      {reel.caption.length > 20 && (
-                        <div className="reel-read-more">
-                          {expandedDescriptions.has(index) ? 'Show less' : 'Read more'}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="reel-actions-right">
-                  <div className="reel-action-buttons">
-                    <div className="reel-action-item">
-                      <div className={`reel-action-button ${reel.isLiked ? 'liked' : ''}`} onClick={() => handleLike(index)}>
-                        <svg fill={reel.isLiked ? "#ff0000" : "currentColor"} viewBox="0 0 24 24">
-                          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54z" />
-                        </svg>
-                      </div>
-                      <span className="reel-action-count">{reel.likes}</span>
-                    </div>
-
-                    <div className="reel-action-item">
-                      <div className="reel-action-button" onClick={() => handleComment(index)}>
-                        <svg fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14zM8 15h2.5l1.5 1.5 1.5-1.5H16v-2.5l1.5-1.5-1.5-1.5V8h-2.5L13 6.5 11.5 8H9v2.5L7.5 12 9 13.5V15z" />
-                        </svg>
-                      </div>
-                      <span className="reel-action-count">{reel.comments}</span>
-                    </div>
-
-                    <div className="reel-action-item">
-                      <div className="reel-action-button" onClick={() => handleShare(index)}>
-                        <svg fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z" />
-                        </svg>
-                      </div>
-                      <span className="reel-action-count">Share</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
+          {getReelsWithAds()}
         </div>
 
         {loading && (
@@ -559,7 +710,7 @@ function ReelsFeed() {
           postId={shareReel.postId}
           userName={shareReel.user?.userName || shareReel.userId || 'unknown'}
           message={shareReel.caption}
-          timestamp={shareReel.timestamp || Date.now()} // This can be string or number
+          timestamp={shareReel.timestamp || Date.now()}
           likeCount={shareReel.likes}
           commentCount={shareReel.comments}
           isOpen={true}

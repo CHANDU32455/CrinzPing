@@ -37,58 +37,63 @@ import ShowFollowers from "./following/ShowFollowers";
 import ShowFollowing from "./following/ShowFollowing";
 import SharedContentPage from "./pages/SharedContentPage";
 import "./App.css";
+import { AdsProvider } from "./context/AdsContext";
+import AdsScriptLoader from "./components/AdsScriptLoader";
 
 const App = () => {
   const auth = useAuth();
 
   return (
     <HeadProvider>
-      <BrowserRouter>
-        <AuthManager />
-        <NetworkErrorChip />
-        {auth.isAuthenticated && <FloatingActionButton />}
-        <Routes>
-          {/* All pages with navbar */}
-          <Route element={<Layout />}>
-            {/* Public routes */}
-            <Route path="/" element={<Home />} />
-            <Route path="/about" element={<AboutApp />} />
-            <Route path="/post/:encoded" element={<SharedCrinzFeedPost />} />
-            <Route path="/help" element={<HelpPage />} />
-            <Route path="/terms" element={<TermsPage />} />
-            <Route path="/privacySettings" element={<PrivacySettingsPage />} />
-            <Route path="/goodbye" element={<GoodBye />} />
-            
-            {/* ADD SHARED CONTENT ROUTE HERE */}
-            <Route path="/shared/:contentType/:contentId" element={<SharedContentPage />} />
+      <AdsProvider>
+        <AdsScriptLoader />
+        <BrowserRouter>
+          <AuthManager />
+          <NetworkErrorChip />
+          {auth.isAuthenticated && <FloatingActionButton />}
+          <Routes>
+            {/* All pages with navbar */}
+            <Route element={<Layout />}>
+              {/* Public routes */}
+              <Route path="/" element={<Home />} />
+              <Route path="/about" element={<AboutApp />} />
+              <Route path="/post/:encoded" element={<SharedCrinzFeedPost />} />
+              <Route path="/help" element={<HelpPage />} />
+              <Route path="/terms" element={<TermsPage />} />
+              <Route path="/privacySettings" element={<PrivacySettingsPage />} />
+              <Route path="/goodbye" element={<GoodBye />} />
 
-            {/* Protected routes - profile tab handles new user setup */}
-            <Route path="/feed/personalizedfeed" element={<ProtectedRoute><UserPostsFeed /></ProtectedRoute>} />
-            <Route path="/feed/crinzmessagesfeed" element={<ProtectedRoute><GlobalFeed /></ProtectedRoute>} />
-            <Route path="/feed/reelsfeed" element={<ProtectedRoute><ReelsFeed /></ProtectedRoute>} />
-            <Route path="/extras" element={<ProtectedRoute><Extras /></ProtectedRoute>} />
-            <Route path="/posts/:userId/allposts" element={<PostsAllPage />} />
-            <Route path="/reels/:userId/allreels" element={<ReelsAllPage />} />
-            <Route path="/contributeCrinz" element={<ProtectedRoute><CrinzExplorer /></ProtectedRoute>} />
-            <Route path="/addPostCrinz" element={<ProtectedRoute><CreatePost /></ProtectedRoute>} />
-            <Route path="/addVideoCrinz" element={<ProtectedRoute><CreateReel /></ProtectedRoute>} />
-            <Route path="/postUserDetails" element={<ProtectedRoute><UserDetailsForm /></ProtectedRoute>} />
-            <Route path="/profile/:sub" element={<ProtectedRoute><OthersProfileView /></ProtectedRoute>} />
-            <Route path="/profile/:sub/messages" element={<ProtectedRoute><ProfileMorePosts /></ProtectedRoute>} />
-            <Route path="/profile/:userSub/more" element={<ProtectedRoute><ProfileMorePosts /></ProtectedRoute>} />
-            <Route path="/profile/:userId/followers" element={<ProtectedRoute> <ShowFollowers /> </ProtectedRoute>} />
-            <Route path="/profile/:userId/following" element={<ProtectedRoute> <ShowFollowing /> </ProtectedRoute>} />
+              {/* ADD SHARED CONTENT ROUTE HERE */}
+              <Route path="/shared/:contentType/:contentId" element={<SharedContentPage />} />
 
-          </Route>
+              {/* Protected routes - profile tab handles new user setup */}
+              <Route path="/feed/personalizedfeed" element={<ProtectedRoute><UserPostsFeed /></ProtectedRoute>} />
+              <Route path="/feed/crinzmessagesfeed" element={<ProtectedRoute><GlobalFeed /></ProtectedRoute>} />
+              <Route path="/feed/reelsfeed" element={<ProtectedRoute><ReelsFeed /></ProtectedRoute>} />
+              <Route path="/extras" element={<ProtectedRoute><Extras /></ProtectedRoute>} />
+              <Route path="/posts/:userId/allposts" element={<PostsAllPage />} />
+              <Route path="/reels/:userId/allreels" element={<ReelsAllPage />} />
+              <Route path="/contributeCrinz" element={<ProtectedRoute><CrinzExplorer /></ProtectedRoute>} />
+              <Route path="/addPostCrinz" element={<ProtectedRoute><CreatePost /></ProtectedRoute>} />
+              <Route path="/addVideoCrinz" element={<ProtectedRoute><CreateReel /></ProtectedRoute>} />
+              <Route path="/postUserDetails" element={<ProtectedRoute><UserDetailsForm /></ProtectedRoute>} />
+              <Route path="/profile/:sub" element={<ProtectedRoute><OthersProfileView /></ProtectedRoute>} />
+              <Route path="/profile/:sub/messages" element={<ProtectedRoute><ProfileMorePosts /></ProtectedRoute>} />
+              <Route path="/profile/:userSub/more" element={<ProtectedRoute><ProfileMorePosts /></ProtectedRoute>} />
+              <Route path="/profile/:userId/followers" element={<ProtectedRoute> <ShowFollowers /> </ProtectedRoute>} />
+              <Route path="/profile/:userId/following" element={<ProtectedRoute> <ShowFollowing /> </ProtectedRoute>} />
 
-          {/* Routes without navbar */}
-          <Route path="/register" element={<RegisterCallback />} />
-          <Route path="/auth/callback" element={<RegisterCallback />} />
+            </Route>
 
-          {/* Catch-all for invalid URLs */}
-          <Route path="*" element={<InvalidPage />} />
-        </Routes>
-      </BrowserRouter>
+            {/* Routes without navbar */}
+            <Route path="/register" element={<RegisterCallback />} />
+            <Route path="/auth/callback" element={<RegisterCallback />} />
+
+            {/* Catch-all for invalid URLs */}
+            <Route path="*" element={<InvalidPage />} />
+          </Routes>
+        </BrowserRouter>
+      </AdsProvider>
     </HeadProvider>
   );
 };

@@ -2,13 +2,15 @@ import React, { useEffect, useRef, useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "react-oidc-context";
 import { useCrinzMessages } from "../hooks/useCrinzMessages";
-import { batchSyncer, useBatchSync } from "../utils/msgsBatchSyncer"; // Add useBatchSync
+import { batchSyncer, useBatchSync } from "../utils/msgsBatchSyncer";
 import UserAvatar from "../utils/UserAvatar";
 import ShareComponent from "../ShareComponent";
 import CommentModal from "../commentModal";
 import SyncStatusIndicator from "../utils/SyncStatusIndicator";
+import AdUnit from "../../ads/GeneralAdUnit";
 import "../css/GlobalFeed.css";
 import { contentManager } from "../../utils/Posts_Reels_Stats_Syncer";
+import { APP_CONFIG } from "../../config/appConfig";
 
 const GlobalFeed: React.FC = () => {
   const auth = useAuth();
@@ -25,7 +27,7 @@ const GlobalFeed: React.FC = () => {
   } = useCrinzMessages();
 
   // Add batch sync hook
-  const { syncState, pendingCount } = useBatchSync();
+  const { syncState } = useBatchSync();
 
   const [localPosts, setLocalPosts] = useState(crinzPosts);
   const [selectedPost, setSelectedPost] = useState<{
@@ -247,33 +249,8 @@ const GlobalFeed: React.FC = () => {
       clearTimeout(networkErrorTimeoutRef.current);
     }
   };
-
-  // NEW: Manual sync trigger
-  const handleForceSync = () => {
-    batchSyncer.forceSync();
-  };
-
   return (
     <div className="global-feed">
-      {/* NEW: Sync Status Indicator */}
-      {pendingCount > 0 && (
-        <div className="sync-status-banner">
-          <div className="sync-status-content">
-            <span className="sync-status-icon">🔄</span>
-            <span className="sync-status-message">
-              {pendingCount} pending action{syncState.pendingActions.length !== 1 ? 's' : ''}
-            </span>
-            <button
-              className="sync-now-button"
-              onClick={handleForceSync}
-              disabled={syncState.syncStatus === 'syncing'}
-            >
-              {syncState.syncStatus === 'syncing' ? 'Syncing...' : 'Sync Now'}
-            </button>
-          </div>
-        </div>
-      )}
-
       {networkError && (
         <div className="network-error-chip">
           <div className="network-error-content">
@@ -300,107 +277,116 @@ const GlobalFeed: React.FC = () => {
           </div>
         ) : (
           localPosts.map((post, index) => (
-            <div
-              key={post.crinzId}
-              className="feed-post"
-              ref={index === localPosts.length - 1 ? lastPostElementRef : null}
-            >
+            <React.Fragment key={`post-fragment-${post.crinzId}`}>
               <div
-                className="post-header"
-                style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  justifyContent: "space-between",
-                  gap: "12px",
-                  width: "100%"
-                }}
+                key={post.crinzId}
+                className="feed-post"
+                ref={index === localPosts.length - 1 ? lastPostElementRef : null}
               >
-                {/* Left: Avatar + Username + Tagline (stacked) */}
-                <div style={{ display: "flex", alignItems: "flex-start", gap: "12px", flex: 1 }}>
-                  <div className="user-avatar">
-                    <UserAvatar
-                      userName={post.userName}
-                      profilePic={post.userProfilePic}
-                      size={40}
-                      className="avatar-image"
-                    />
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
-                    <div
-                      className="username"
-                      style={{
-                        cursor: "pointer",
-                        color: "#00aaff",
-                        fontWeight: 600,
-                        textDecoration: "underline",
-                        fontSize: "14px",
-                        lineHeight: "1.2",
-                        marginBottom: "2px"
-                      }}
-                      onClick={() => navigate(`/profile/${post.userId}`)}
-                    >
-                      @{post.userName}
-                    </div>
-                    {post.userTagline && (
-                      <div
-                        className="user-tagline"
-                        style={{
-                          width: "100%",
-                          fontSize: "12px",
-                          color: "#888",
-                          lineHeight: "1.3",
-                          wordWrap: "break-word",
-                          overflowWrap: "break-word",
-                          whiteSpace: "normal"
-                        }}
-                      >
-                        {post.userTagline}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Right: Timestamp */}
                 <div
-                  className="timestamp"
+                  className="post-header"
                   style={{
-                    flexShrink: 0,
-                    fontSize: "11px",
-                    color: "#666",
-                    textAlign: "right",
-                    whiteSpace: "nowrap",
-                    alignSelf: "flex-start"
+                    display: "flex",
+                    alignItems: "flex-start",
+                    justifyContent: "space-between",
+                    gap: "12px",
+                    width: "100%"
                   }}
                 >
-                  {formatTime(post.timestamp)}
+                  {/* Left: Avatar + Username + Tagline (stacked) */}
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: "12px", flex: 1 }}>
+                    <div className="user-avatar">
+                      <UserAvatar
+                        userName={post.userName}
+                        profilePic={post.userProfilePic}
+                        size={40}
+                        className="avatar-image"
+                      />
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
+                      <div
+                        className="username"
+                        style={{
+                          cursor: "pointer",
+                          color: "#00aaff",
+                          fontWeight: 600,
+                          textDecoration: "underline",
+                          fontSize: "14px",
+                          lineHeight: "1.2",
+                          marginBottom: "2px"
+                        }}
+                        onClick={() => navigate(`/profile/${post.userId}`)}
+                      >
+                        @{post.userName}
+                      </div>
+                      {post.userTagline && (
+                        <div
+                          className="user-tagline"
+                          style={{
+                            width: "100%",
+                            fontSize: "12px",
+                            color: "#888",
+                            lineHeight: "1.3",
+                            wordWrap: "break-word",
+                            overflowWrap: "break-word",
+                            whiteSpace: "normal"
+                          }}
+                        >
+                          {post.userTagline}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Right: Timestamp */}
+                  <div
+                    className="timestamp"
+                    style={{
+                      flexShrink: 0,
+                      fontSize: "11px",
+                      color: "#666",
+                      textAlign: "right",
+                      whiteSpace: "nowrap",
+                      alignSelf: "flex-start"
+                    }}
+                  >
+                    {formatTime(post.timestamp)}
+                  </div>
+                </div>
+
+                <div className="post-content">
+                  <p>{post.message}</p>
+                </div>
+
+                <div className="post-actions">
+                  <button
+                    className={`like-btn ${post.isLiked ? "liked" : ""}`}
+                    onClick={() => handleLike(post.crinzId, post.isLiked || false)}
+                  >
+                    {post.isLiked ? "❤️" : "🤍"} {post.likeCount}
+                  </button>
+                  <button
+                    className="comment-btn"
+                    onClick={() => handleComment(post.crinzId)}
+                  >
+                    💬 {post.commentCount}
+                  </button>
+                  <button
+                    className="share-btn"
+                    onClick={() => handleShare(post.crinzId)}
+                  >
+                    📤 Share
+                  </button>
                 </div>
               </div>
 
-              <div className="post-content">
-                <p>{post.message}</p>
-              </div>
-
-              <div className="post-actions">
-                <button
-                  className={`like-btn ${post.isLiked ? "liked" : ""}`}
-                  onClick={() => handleLike(post.crinzId, post.isLiked || false)}
-                >
-                  {post.isLiked ? "❤️" : "🤍"} {post.likeCount}
-                </button>
-                <button
-                  className="comment-btn"
-                  onClick={() => handleComment(post.crinzId)}
-                >
-                  💬 {post.commentCount}
-                </button>
-                <button
-                  className="share-btn"
-                  onClick={() => handleShare(post.crinzId)}
-                >
-                  📤 Share
-                </button>
-              </div>
-            </div>
+              {/* Show ad every 3 posts ONLY if ads enabled */}
+              {APP_CONFIG.ads && (index + 1) % 3 === 0 && (
+                <div key={`ad-${post.crinzId}`} className="feed-post ad-wrapper">
+                  <AdUnit />
+                </div>
+              )}
+            </React.Fragment>
           ))
         )}
       </div>
@@ -435,7 +421,7 @@ const GlobalFeed: React.FC = () => {
           accessToken={accessToken}
           onNewComment={handleNewComment}
           onDeleteComment={handleDeleteComment}
-          contentType="crinz_message" // ✅ ADD THIS
+          contentType="crinz_message"
         />
       )}
 
