@@ -1,0 +1,393 @@
+.share-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  z-index: 2000;
+  animation: fadeIn 0.3s ease-out;
+  backdrop-filter: blur(10px);
+}
+
+.share-modal-overlay.closing {
+  animation: fadeOut 0.3s ease-out;
+}
+
+.share-modal {
+  background: linear-gradient(145deg, #1a1a1a, #2d2d2d);
+  border-radius: 24px 24px 0 0;
+  width: 100%;
+  max-width: 500px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.5);
+  border: 1px solid #404040;
+  border-bottom: none;
+  animation: slideUp 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transform: translateY(0);
+}
+
+.share-modal.closing {
+  animation: slideDown 0.3s cubic-bezier(0.55, 0.085, 0.68, 0.53);
+}
+
+.share-modal-header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid #404040;
+  background: rgba(30, 30, 30, 0.95);
+  position: relative;
+}
+
+.share-modal-header h3 {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #ffffff;
+  text-align: center;
+}
+
+.share-close-button {
+  position: absolute;
+  right: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  font-size: 1.8rem;
+  color: #a0a0a0;
+  cursor: pointer;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.share-close-button:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  transform: rotate(90deg);
+}
+
+/* Content Preview */
+.share-content-preview {
+  padding: 20px 24px;
+  border-bottom: 1px solid #404040;
+  background: rgba(25, 25, 25, 0.8);
+}
+
+.share-reel-preview {
+  width: 100%;
+  height: 200px;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 16px;
+  background: #000;
+  position: relative;
+}
+
+.share-reel-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+.share-reel-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #ffffff;
+  font-size: 0.9rem;
+}
+
+.share-post-info {
+  color: #e0e0e0;
+}
+
+.share-post-author {
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin-bottom: 8px;
+  color: #00d4ff;
+}
+
+.share-post-content {
+  color: #c0c0c0;
+  line-height: 1.5;
+  font-size: 0.95rem;
+  margin-bottom: 12px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  line-clamp: 3;
+}
+
+.share-timestamp {
+  font-size: 0.8rem;
+  color: #888;
+  margin-bottom: 12px;
+}
+
+.share-stats {
+  display: flex;
+  gap: 16px;
+  font-size: 0.85rem;
+  color: #888;
+}
+
+/* Share Apps Grid */
+.share-apps-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  padding: 24px;
+  background: rgba(20, 20, 20, 0.9);
+}
+
+.share-app-button {
+  background: linear-gradient(145deg, #2a2a2a, #3a3a3a);
+  border: 1px solid #404040;
+  border-radius: 16px;
+  padding: 16px 12px;
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-height: 80px;
+  justify-content: center;
+}
+
+.share-app-button:hover:not(:disabled) {
+  background: linear-gradient(145deg, #3a3a3a, #4a4a4a);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border-color: #00d4ff;
+}
+
+.share-app-button:active {
+  transform: translateY(0);
+}
+
+.share-app-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* URL Preview */
+.share-url-preview {
+  padding: 16px 24px;
+  background: rgba(15, 15, 15, 0.9);
+  border-top: 1px solid #404040;
+}
+
+.share-url-preview small {
+  color: #888;
+  font-size: 0.8rem;
+  word-break: break-all;
+  display: block;
+  text-align: center;
+}
+
+/* Platform-specific icons (you can add actual icons later) */
+.share-app-button[data-app="Copy Link"]::before {
+  content: "🔗";
+  font-size: 1.2rem;
+}
+
+.share-app-button[data-app="WhatsApp"]::before {
+  content: "💬";
+  font-size: 1.2rem;
+}
+
+.share-app-button[data-app="Twitter"]::before {
+  content: "🐦";
+  font-size: 1.2rem;
+}
+
+.share-app-button[data-app="Telegram"]::before {
+  content: "📱";
+  font-size: 1.2rem;
+}
+
+.share-app-button[data-app="Email"]::before {
+  content: "✉️";
+  font-size: 1.2rem;
+}
+
+.share-app-button[data-app="External Apps"]::before {
+  content: "📤";
+  font-size: 1.2rem;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+}
+
+/* Handle for drag to close */
+.share-modal-handle {
+  width: 40px;
+  height: 4px;
+  background: #404040;
+  border-radius: 2px;
+  margin: 8px auto;
+  cursor: grab;
+}
+
+.share-modal-handle:active {
+  cursor: grabbing;
+}
+
+/* Enhanced mobile responsiveness */
+@media (max-width: 480px) {
+  .share-modal {
+    max-height: 90vh;
+    border-radius: 20px 20px 0 0;
+  }
+  
+  .share-apps-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    padding: 20px;
+  }
+  
+  .share-app-button {
+    min-height: 70px;
+    padding: 12px 8px;
+    font-size: 0.85rem;
+  }
+  
+  .share-content-preview {
+    padding: 16px 20px;
+  }
+  
+  .share-reel-preview {
+    height: 160px;
+  }
+}
+
+/* Tablet and larger screens */
+@media (min-width: 768px) {
+  .share-modal-overlay {
+    align-items: center;
+  }
+  
+  .share-modal {
+    border-radius: 24px;
+    max-height: 80vh;
+    animation: popIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+  
+  .share-modal.closing {
+    animation: popOut 0.3s cubic-bezier(0.55, 0.085, 0.68, 0.53);
+  }
+  
+  @keyframes popIn {
+    from {
+      opacity: 0;
+      transform: scale(0.9) translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+  
+  @keyframes popOut {
+    from {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: scale(0.9) translateY(20px);
+    }
+  }
+}
+
+/* Dark theme enhancements */
+.share-modal {
+  --primary-color: #00d4ff;
+  --secondary-color: #ff6b6b;
+  --background: #1a1a1a;
+  --surface: #2d2d2d;
+  --text-primary: #ffffff;
+  --text-secondary: #a0a0a0;
+}
+
+/* Smooth scrolling for content */
+.share-content-preview {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #404040 transparent;
+}
+
+.share-content-preview::-webkit-scrollbar {
+  width: 4px;
+}
+
+.share-content-preview::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.share-content-preview::-webkit-scrollbar-thumb {
+  background: #404040;
+  border-radius: 2px;
+}
+
+/* Success state for copy */
+.share-app-button.copied {
+  background: linear-gradient(145deg, #00a86b, #00d4aa);
+  color: #ffffff;
+}
+
+.share-app-button.copied::before {
+  content: "✅";
+}
