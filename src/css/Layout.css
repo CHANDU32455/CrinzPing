@@ -160,45 +160,13 @@
   box-shadow: 0 0 10px rgba(0, 170, 255, 0.5);
 }
 
-/* Main Content - BASE STYLES */
+/* Main Content */
 .main-content {
   flex: 1;
   margin-top: 70px; /* Header height */
   position: relative;
   z-index: 1;
   width: 100%;
-  transition: transform 0.3s ease;
-}
-
-/* Desktop: Add margin only when sidebar is visible - EXCEPT for reels feed */
-.main-content.has-sidebar:not(.reels-feed-page) {
-  margin-left: 280px; /* Menu width */
-  width: calc(100% - 280px);
-  transition: margin-left 0.3s ease;
-}
-
-/* Mobile: Transform content when menu is open - EXCEPT for reels feed */
-@media (max-width: 1024px) {
-  .main-content.menu-open:not(.reels-feed-page) {
-    transform: translateX(280px);
-  }
-}
-
-.main-content.reels-feed-page {
-  margin-top: 70px; /* Respect header */
-  margin-left: 0;
-  width: 100%;
-  height: calc(100vh - 70px);
-  position: relative;
-  z-index: 1;
-}
-
-/* Only go fullscreen if explicitly needed */
-.main-content.reels-feed-page.fullscreen {
-  margin-top: 0;
-  height: 100vh;
-  position: fixed;
-  z-index: 1001;
 }
 
 /* Hamburger Menu */
@@ -218,14 +186,8 @@
   overflow: hidden;
 }
 
-/* Desktop: Always show menu when authenticated */
-.hamburger-menu.desktop.open {
-  left: 0 !important;
-  transition: none;
-}
-
-/* Mobile menu open state - overlay style */
-.hamburger-menu.mobile.open {
+/* Menu open state */
+.hamburger-menu.open {
   left: 0;
   box-shadow: 4px 0 20px rgba(0, 0, 0, 0.5);
 }
@@ -377,7 +339,7 @@
   animation: statusPulse 2s infinite;
 }
 
-/* Menu Overlay - Only for mobile */
+/* Menu Overlay */
 .menu-overlay {
   position: fixed;
   top: 70px;
@@ -388,15 +350,6 @@
   backdrop-filter: blur(2px);
   z-index: 998;
   animation: overlayFadeIn 0.3s ease;
-}
-
-/* Ensure ReelsFeed stays on top and full screen */
-.main-content.reels-feed-page ~ .hamburger-menu {
-  z-index: 1000; /* Menu should be above reels */
-}
-
-.main-content.reels-feed-page ~ .menu-overlay {
-  z-index: 999; /* Overlay should be above reels but below menu */
 }
 
 /* Responsive Design */
@@ -417,11 +370,6 @@
   .hamburger-menu {
     width: 280px;
     left: -280px;
-  }
-
-  .main-content.has-sidebar:not(.reels-feed-page) {
-    margin-left: 280px;
-    width: calc(100% - 280px);
   }
 
   .menu-item {
@@ -445,21 +393,12 @@
   .main-content {
     margin-top: 60px;
   }
-  
-  .main-content.reels-feed-page {
-    margin-top: 0 !important;
-  }
 
   .hamburger-menu {
     top: 60px;
     height: calc(100vh - 60px);
     width: 280px;
     left: -280px;
-  }
-
-  .main-content.has-sidebar:not(.reels-feed-page) {
-    margin-left: 280px;
-    width: calc(100% - 280px);
   }
 
   .menu-overlay {

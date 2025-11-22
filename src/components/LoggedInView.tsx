@@ -16,6 +16,9 @@ interface Props {
   toggleAutoMode: () => void;
 }
 
+// Simple profile cache
+const profileCache = new Map<string, { profilePic?: string; displayName: string; tagline?: string }>();
+
 // Professional SVG Icons
 const LikeIcon = ({ filled = false }: { filled?: boolean }) => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -68,6 +71,29 @@ function LoggedInView({
   const [liked, setLiked] = useState<boolean>(crinzData?.isLiked ?? false);
   const [likeCount, setLikeCount] = useState<number>(crinzData?.likeCount ?? 0);
   const [localCommentCount, setLocalCommentCount] = useState<number>(crinzData?.commentCount ?? 0);
+
+  // Cache user profile data when we get new crinz data
+  useEffect(() => {
+    if (crinzData) {
+      const cacheKey = crinzData.userId;
+      profileCache.set(cacheKey, {
+        profilePic: crinzData.user.profilePic,
+        displayName: crinzData.userName,
+        tagline: crinzData.user.tagline
+      });
+    }
+  }, [crinzData]);
+
+  // Get cached user data if available
+  const cachedUserData = useMemo(() => {
+    if (!crinzData) return null;
+    return profileCache.get(crinzData.userId);
+  }, [crinzData]);
+
+  // Use cached data if available, otherwise use fresh data
+  const userProfilePic = cachedUserData?.profilePic || crinzData?.user.profilePic;
+  const userDisplayName = cachedUserData?.displayName || crinzData?.userName;
+  const userTagline = cachedUserData?.tagline || crinzData?.user.tagline;
 
   // Sync when a new crinz is shown
   useEffect(() => {
@@ -139,13 +165,13 @@ function LoggedInView({
           gap: "0.75rem",
           marginBottom: "1rem"
         }}>
-          {/* Profile Picture */}
+          {/* Profile Picture - Using cached data */}
           <div className="profile-pic" style={{
             width: "44px",
             height: "44px",
             borderRadius: "50%",
-            background: crinzData.user.profilePic 
-              ? `url(${crinzData.user.profilePic}) center/cover`
+            background: userProfilePic 
+              ? `url(${userProfilePic}) center/cover`
               : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
             display: "flex",
             alignItems: "center",
@@ -154,10 +180,10 @@ function LoggedInView({
             fontSize: "1.2rem",
             fontWeight: "bold"
           }}>
-            {!crinzData.user.profilePic && crinzData.userName.charAt(0)}
+            {!userProfilePic && userDisplayName?.charAt(0)}
           </div>
 
-          {/* User Info */}
+          {/* User Info - Using cached data */}
           <div style={{ flex: 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
               <Link
@@ -172,15 +198,15 @@ function LoggedInView({
                 onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
                 onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
               >
-                @{crinzData.userName}
+                @{userDisplayName}
               </Link>
-              {crinzData.user.tagline && (
+              {userTagline && (
                 <span style={{ 
                   color: "#888", 
                   fontSize: "0.9rem",
                   fontStyle: "italic"
                 }}>
-                  {crinzData.user.tagline}
+                  {userTagline}
                 </span>
               )}
             </div>
@@ -398,7 +424,7 @@ function LoggedInView({
       {shareModal && (
         <ShareComponent
           postId={crinzData.crinzId}
-          userName={crinzData.userName}
+          userName={userDisplayName || crinzData.userName}
           message={crinzData.message}
           timestamp={crinzData.timestamp}
           likeCount={likeCount}
@@ -415,7 +441,7 @@ function LoggedInView({
           postId={crinzData.crinzId}
           isOpen={commentModal.isOpen}
           onClose={() => setCommentModal(null)}
-          userName={crinzData.userName}
+          userName={userDisplayName || crinzData.userName}
           postMessage={crinzData.message}
           commentCount={localCommentCount}
           accessToken={auth.user?.access_token}

@@ -2,7 +2,7 @@ import axios from "axios";
 import { useState, useEffect, useCallback } from "react";
 
 const BASE_API_URL = import.meta.env.VITE_BASE_API_URL;
-``
+
 // construct specific endpoints
 const USER_API_URL = `${BASE_API_URL}/getUserDetails`;
 const CRINZ_API_URL = `${BASE_API_URL}/fetchUserPosts`;
@@ -34,7 +34,7 @@ export interface CrinzResponse {
   lastKey?: string;
 }
 
-export const POSTS_PER_PAGE = 15;
+export const POSTS_PER_PAGE = 5;
 
 // ---------- Module-level cache ----------
 const userCache: Record<string, UserDetails> = {};
@@ -106,7 +106,6 @@ export const useUserDetails = (userSub?: string) => {
 
       // Check if this request is already in progress
       if (activeUserFetches.has(cacheKey)) {
-        console.log("[useUserDetails] User fetch already in progress, waiting...");
         try {
           const cachedUser = await activeUserFetches.get(cacheKey);
           if (cachedUser) {
@@ -121,8 +120,6 @@ export const useUserDetails = (userSub?: string) => {
 
       // Check cache first, but only if we're not forcing a pic refresh
       if (userCache[userSub] && !forcePic) {
-        console.log("[useUserDetails] userCache hit for:", userSub);
-
         // If cached user has no pic, check localStorage
         if (!userCache[userSub].profilePic) {
           const stored = loadCachedPic(userSub);
@@ -144,9 +141,10 @@ export const useUserDetails = (userSub?: string) => {
         }
       }
 
-      console.log("[useUserDetails] Fetching user from API:", userSub, "forcePic:", forcePic);
+      // Only log when actually fetching from server
+      console.log("[useUserDetails] 🚀 Fetching user from API:", userSub, "forcePic:", forcePic);
       setLoadingUser(true);
-      setUserError(null); // before request
+      setUserError(null);
 
       try {
         // Create a promise for this request and store it
@@ -195,6 +193,7 @@ export const useUserDetails = (userSub?: string) => {
               profilePicPath: data.profilePicPath // Keep the path for future reference
             };
 
+            console.log("[useUserDetails] ✅ User data fetched successfully:", data.userId);
             setUserDetails(merged);
             userCache[userSub] = merged;
             return merged;
@@ -211,7 +210,7 @@ export const useUserDetails = (userSub?: string) => {
         await userFetchPromise;
 
       } catch (err) {
-        console.error("User fetch failed:", err);
+        console.error("❌ User fetch failed:", err);
       } finally {
         // Always remove from active fetches when done
         activeUserFetches.delete(cacheKey);
@@ -229,7 +228,6 @@ export const useUserDetails = (userSub?: string) => {
 
       // Check if this request is already in progress
       if (activeCrinzFetches.has(cacheKey)) {
-        console.log("[useUserDetails] Crinz fetch already in progress, waiting...");
         try {
           const cachedCrinz = await activeCrinzFetches.get(cacheKey);
           if (cachedCrinz) {
@@ -248,23 +246,21 @@ export const useUserDetails = (userSub?: string) => {
       }
 
       if (!startKey && crinzCache[userSub]) {
-        console.log("[useUserDetails] crinzCache hit for:", userSub);
         setCrinzMessages(crinzCache[userSub]);
         setLastKey(lastKeyCache[userSub]);
         return;
       }
 
-      console.log("[useUserDetails] Fetching crinz messages from API for:", userSub, "startKey:", startKey);
+      // Only log when actually fetching from server
+      console.log("[useUserDetails] 🚀 Fetching crinz messages from API for:", userSub, "startKey:", startKey);
       setLoadingCrinz(true);
-      setCrinzError(null); // before request
+      setCrinzError(null);
 
       try {
         // Create a promise for this request and store it
         const crinzFetchPromise = withTimeout((async () => {
           try {
             const url = new URL(CRINZ_API_URL);
-            const newLocal = "[useUserDetails] ACTUAL API CALL to fetch crinzmessages..";
-            console.log(newLocal);
             url.searchParams.append("limit", String(POSTS_PER_PAGE));
             if (startKey) url.searchParams.append("lastKey", startKey);
             url.searchParams.append("userId", userSub);
@@ -275,6 +271,8 @@ export const useUserDetails = (userSub?: string) => {
 
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data: CrinzResponse = await res.json();
+
+            console.log("[useUserDetails] ✅ Crinz messages fetched successfully:", data.posts.length, "crinzes");
 
             setCrinzMessages(prev => {
               const merged = startKey ? [...prev, ...data.posts] : data.posts;
@@ -287,7 +285,7 @@ export const useUserDetails = (userSub?: string) => {
             return data;
 
           } catch (err) {
-            setCrinzError(err);  // 👈 set error state
+            setCrinzError(err);
             if (!startKey) setCrinzMessages([]);
             setLastKey(undefined);
             throw err;
@@ -300,7 +298,7 @@ export const useUserDetails = (userSub?: string) => {
         await crinzFetchPromise;
 
       } catch (err) {
-        console.error("Crinz fetch failed:", err);
+        console.error("❌ Crinz fetch failed:", err);
       } finally {
         // Always remove from active fetches when done
         activeCrinzFetches.delete(cacheKey);
@@ -337,7 +335,6 @@ export const useUserDetails = (userSub?: string) => {
       setCrinzMessages(prev => {
         const updated = [msg, ...prev];
         if (userSub) crinzCache[userSub] = updated;
-        console.log("[useUserDetails] Added new crinz message:", msg.crinzId);
         return updated;
       });
     },
@@ -345,24 +342,22 @@ export const useUserDetails = (userSub?: string) => {
   );
 
   // -------- Update user details --------
-  // Simplified updateUserDetails function
-const updateUserDetails = useCallback(
-  (details: UserDetails, refreshPic = false) => {
-    setUserDetails(details);
-    if (userSub) {
-      userCache[userSub] = details;
-      console.log("[useUserDetails] User details updated:", details.userId);
+  const updateUserDetails = useCallback(
+    (details: UserDetails, refreshPic = false) => {
+      setUserDetails(details);
+      if (userSub) {
+        userCache[userSub] = details;
 
-      if (refreshPic) {
-        // Bust both cache + localStorage and refetch
-        delete userCache[userSub];
-        saveCachedPic(userSub, undefined);
-        fetchUserDetails(true);
+        if (refreshPic) {
+          // Bust both cache + localStorage and refetch
+          delete userCache[userSub];
+          saveCachedPic(userSub, undefined);
+          fetchUserDetails(true);
+        }
       }
-    }
-  },
-  [userSub, fetchUserDetails]
-);
+    },
+    [userSub, fetchUserDetails]
+  );
 
   return {
     userDetails,

@@ -50,7 +50,7 @@ const useFollow = (userId?: string) => {
   // Add refreshStats function - useCallback to prevent unnecessary re-renders
   const refreshStats = useCallback(async () => {
     if (!userId) return;
-    
+
     console.log("[useFollow] Force refreshing stats...");
     // Clear cache for this user to force fresh fetch
     cache.stats.delete(userId);
@@ -279,14 +279,15 @@ const useFollow = (userId?: string) => {
             isFollowing: action === "follow"
           };
         });
+        const prev = cache.stats.get(userId!) || stats;
 
-        // update cache directly
         cache.stats.set(userId!, {
-          ...stats,
-          followersCount: action === "follow"
-            ? stats.followersCount + 1
-            : Math.max(0, stats.followersCount - 1),
-          isFollowing: action === "follow"
+          ...prev,
+          followersCount:
+            action === "follow"
+              ? prev.followersCount + 1
+              : Math.max(0, prev.followersCount - 1),
+          isFollowing: action === "follow",
         });
 
         return true;
@@ -315,15 +316,13 @@ const useFollow = (userId?: string) => {
     const currentUserId =
       auth.user?.profile.sub || localStorage.getItem("sub");
 
-    // skip until both userId and currentUserId exist
     if (!userId || !currentUserId) {
       console.log("[useFollow] Waiting for auth to load...");
       return;
     }
 
-    fetchFollowStats(true); // force refresh to ensure valid currentUserId
-  }, [userId, auth.user]);
-
+    fetchFollowStats(false); // ✅ Load from cache if available
+  }, [userId]);
 
   return {
     stats,
@@ -339,7 +338,7 @@ const useFollow = (userId?: string) => {
     fetchFollowStats,
     fetchFollowers,
     fetchFollowing,
-    refreshStats, 
+    refreshStats,
     toggleFollow,
     toggleFollowDirect
   };

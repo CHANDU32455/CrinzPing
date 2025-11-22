@@ -382,7 +382,7 @@ const GlobalFeed: React.FC = () => {
 
               {/* Show ad every 3 posts ONLY if ads enabled */}
               {APP_CONFIG.ads && (index + 1) % 3 === 0 && (
-                <div key={`ad-${post.crinzId}`} className="feed-post ad-wrapper">
+                <div key={`ad-${post.crinzId}`} className="reel-ad-container">
                   <AdUnit />
                 </div>
               )}

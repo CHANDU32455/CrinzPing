@@ -20,7 +20,6 @@ interface TagOption {
 
 interface ExtendedCrinzMessage extends CrinzMessage {
     tags?: string[];
-    userName?: string;
 }
 
 const defaultTags = [
@@ -37,7 +36,6 @@ const CrinzSubmit: React.FC = () => {
     const navigate = useNavigate();
 
     const [status, setStatus] = useState<"idle" | "roasting" | "success" | "error">("idle");
-    const [userName, setUserName] = useState('');
     const [message, setMessage] = useState('');
     const [selectedTags, setSelectedTags] = useState<TagOption[]>([]);
     const [customTagInput, setCustomTagInput] = useState('');
@@ -66,7 +64,6 @@ const CrinzSubmit: React.FC = () => {
     }
 
     const validateFields = () => {
-        if (!userName.trim()) { setResponse("⚠️ Please enter your name."); return false; }
         if (!message.trim()) { setResponse("⚠️ Please enter a roast message."); return false; }
         if (selectedTags.length === 0) { setResponse("⚠️ Please add at least one tag."); return false; }
         if (message.length > 500) { setResponse("⚠️ Message too long. Maximum 500 characters."); return false; }
@@ -105,7 +102,7 @@ const CrinzSubmit: React.FC = () => {
             const res = await fetch(`${import.meta.env.VITE_BASE_API_URL}/postCrinz`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
-                body: JSON.stringify({ userId, userName, message, tags })
+                body: JSON.stringify({ userId, message, tags }) // Removed userName
             });
 
             const data = await res.json();
@@ -118,12 +115,11 @@ const CrinzSubmit: React.FC = () => {
                     likeCount: 0,
                     commentCount: 0,
                     timestamp: new Date().toISOString(),
-                    userName
                 });
                 setStatus("success");
                 setResponse("✅ Roast submitted successfully! Redirecting...");
-                setUserName(''); setMessage(''); setSelectedTags([]); setCustomTagInput('');
-                setTimeout(() => navigate('/extras'), 2000);
+                setMessage(''); setSelectedTags([]); setCustomTagInput('');
+                setTimeout(() => navigate('/profile'), 2000);
             } else {
                 setResponse(data.error || `Error: ${res.status} ${res.statusText}`);
                 setStatus("error");
@@ -139,17 +135,6 @@ const CrinzSubmit: React.FC = () => {
             <ContributeSeo />
             <h2 className="crinz-submit-title">🔥 Submit Your Roast</h2>
             <form onSubmit={handleSubmit} className="crinz-form">
-
-                <div className="form-group">
-                    <input
-                        className="crinz-input"
-                        type="text"
-                        placeholder="Your Name"
-                        value={userName}
-                        onChange={(e) => setUserName(e.target.value)}
-                        disabled={status === "roasting"}
-                    />
-                </div>
 
                 <div className="form-group">
                     <textarea

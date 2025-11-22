@@ -9,8 +9,7 @@ import Home from "../pages/home";
 import GlobalFeed from "../feed/tabs/GlobalFeed";
 import UserPostsFeed from "../feed/tabs/personalizedfeed/PersonalizedFeed";
 import ReelsFeed from "../feed/tabs/ReelsFeed";
-import Extras from "../pages/Extras";
-
+import CrinzProfile from "../profile/CrinzProfile";
 import "../css/Layout.css";
 
 const Layout: React.FC = () => {
@@ -19,8 +18,6 @@ const Layout: React.FC = () => {
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
-  const [isDesktop, setIsDesktop] = useState(false);
-  // Removed mounted/active pages caching to avoid keeping pages always mounted
   const menuRef = useRef<HTMLDivElement>(null);
   const isReelsPage = location.pathname === '/feed/reelsfeed' || location.pathname.includes('/reels');
 
@@ -43,27 +40,12 @@ const Layout: React.FC = () => {
     };
   }, []);
 
-  // Detect screen size for hamburger visibility
-  useEffect(() => {
-    const checkScreenSize = () => {
-      setIsDesktop(window.innerWidth >= 1025);
-    };
-
-    checkScreenSize();
-    window.addEventListener('resize', checkScreenSize);
-    return () => window.removeEventListener('resize', checkScreenSize);
-  }, []);
-
-  // Removed effect that persisted and tracked mounted pages
-
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
   };
 
   const handleNavigation = (path: string) => {
     setIsMenuOpen(false);
-
-    // Navigate immediately
     navigate(path);
   };
 
@@ -74,22 +56,19 @@ const Layout: React.FC = () => {
     return location.pathname.startsWith(path);
   };
 
-  // Define main pages that should be kept mounted once visited
+  // Define main pages
   const mainPages = [
     { path: "/", label: "Home", icon: "💀", component: Home },
     { path: "/feed/crinzmessagesfeed", label: "Global Feed", icon: "🌍", component: GlobalFeed },
     { path: "/feed/personalizedfeed", label: "Personalized Feed", icon: "🎯", component: UserPostsFeed },
     { path: "/feed/reelsfeed", label: "Reels Feed", icon: "🎬", component: ReelsFeed },
-    { path: "/extras", label: "Extras", icon: "👻", component: Extras },
+    { path: "/profile", label: "Extras", icon: "👻", component: CrinzProfile },
   ];
 
-  // Check if current route is one of the main pages (no longer used for rendering)
-  // const isMainPage = mainPages.some(page => isActiveRoute(page.path));
-
-  // Show hamburger only when authenticated AND on mobile/tablet
-  const showHamburger = auth.isAuthenticated && !isDesktop;
-  // Show sidebar menu only when authenticated AND (on desktop OR mobile menu is open)
-  const showSidebarMenu = auth.isAuthenticated && (isDesktop || isMenuOpen);
+  // Show hamburger only when authenticated
+  const showHamburger = auth.isAuthenticated;
+  // Show sidebar menu only when authenticated AND menu is open
+  const showSidebarMenu = auth.isAuthenticated && isMenuOpen;
 
   return (
     <div className="layout-wrapper">
@@ -97,7 +76,7 @@ const Layout: React.FC = () => {
       <header className="header">
         <div className="header-content">
           <div className="header-left">
-            {/* Show hamburger only when authenticated and on mobile/tablet */}
+            {/* Show hamburger only when authenticated */}
             {showHamburger ? (
               <button
                 className={`hamburger-btn ${isMenuOpen ? 'active' : ''}`}
@@ -131,23 +110,21 @@ const Layout: React.FC = () => {
         </div>
       </header>
 
-      {/* Sidebar Menu - Only show when authenticated */}
+      {/* Sidebar Menu - Only show when authenticated AND menu is open */}
       {showSidebarMenu && (
         <div
           ref={menuRef}
-          className={`hamburger-menu ${isMenuOpen || isDesktop ? 'open' : ''} ${isDesktop ? 'desktop' : 'mobile'}`}
+          className={`hamburger-menu ${isMenuOpen ? 'open' : ''}`}
         >
           <div className="menu-header">
             <h3 className="menu-title">Navigation</h3>
-            {!isDesktop && (
-              <button
-                className="menu-close-btn"
-                onClick={() => setIsMenuOpen(false)}
-                aria-label="Close menu"
-              >
-                ✕
-              </button>
-            )}
+            <button
+              className="menu-close-btn"
+              onClick={() => setIsMenuOpen(false)}
+              aria-label="Close menu"
+            >
+              ✕
+            </button>
           </div>
 
           <nav className="menu-nav">
@@ -164,7 +141,6 @@ const Layout: React.FC = () => {
                 {hoveredItem === item.path && (
                   <div className="menu-tooltip">Go to {item.label}</div>
                 )}
-                {/* Removed mounted indicator */}
               </button>
             ))}
           </nav>
@@ -178,12 +154,12 @@ const Layout: React.FC = () => {
         </div>
       )}
 
-      <main className={`main-content ${isReelsPage ? 'reels-feed-page' : ''} ${showSidebarMenu && isDesktop ? 'has-sidebar' : ''}`}>
+      <main className={`main-content ${isReelsPage ? 'reels-feed-page' : ''}`}>
         <Outlet />
       </main>
 
-      {/* Menu Overlay - Only show when authenticated and on mobile/tablet */}
-      {isMenuOpen && auth.isAuthenticated && !isDesktop && (
+      {/* Menu Overlay - Only show when authenticated and menu is open */}
+      {isMenuOpen && auth.isAuthenticated && (
         <div
           className="menu-overlay"
           onClick={() => setIsMenuOpen(false)}

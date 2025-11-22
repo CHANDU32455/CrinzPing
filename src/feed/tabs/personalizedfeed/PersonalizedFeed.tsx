@@ -181,7 +181,7 @@ export const PersonalizedFeed = () => {
                   item={item}
                   onComment={() => handleOpenComment(item)}
                   onShare={() => handleOpenShare(item)}
-                  onLikeUpdate={handleLikeUpdate} // ✅ NEW: Pass like callback
+                  onLikeUpdate={handleLikeUpdate}
                 />
               )}
               {item.type === 'reel' && (
@@ -189,7 +189,7 @@ export const PersonalizedFeed = () => {
                   item={item}
                   onComment={() => handleOpenComment(item)}
                   onShare={() => handleOpenShare(item)}
-                  onLikeUpdate={handleLikeUpdate} // ✅ NEW: Pass like callback
+                  onLikeUpdate={handleLikeUpdate}
                 />
               )}
               {item.type === 'crinz_message' && (
@@ -197,7 +197,7 @@ export const PersonalizedFeed = () => {
                   item={item}
                   onComment={() => handleOpenComment(item)}
                   onShare={() => handleOpenShare(item)}
-                  onLikeUpdate={handleLikeUpdate} // ✅ NEW: Pass like callback
+                  onLikeUpdate={handleLikeUpdate}
                 />
               )}
 
@@ -288,8 +288,8 @@ export const PersonalizedFeed = () => {
             contentType={commentModal.contentType}
             currentUserId={userId}
             accessToken={accessToken}
-            onNewComment={handleNewComment} // ✅ UPDATED: Now properly updates parent
-            onDeleteComment={handleDeleteComment} // ✅ UPDATED: Now properly updates parent
+            onNewComment={handleNewComment} 
+            onDeleteComment={handleDeleteComment} 
           />
         )}
 

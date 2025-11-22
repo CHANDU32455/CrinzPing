@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { HeadProvider } from "react-head";
-import { useAuth } from "react-oidc-context";
+import { AdsProvider } from "./context/AdsContext";
+import AdsScriptLoader from "./components/AdsScriptLoader";
 
 import Home from "./pages/home";
 import ReelsFeed from "./feed/tabs/ReelsFeed";
@@ -8,7 +9,7 @@ import GlobalFeed from "./feed/tabs/GlobalFeed";
 import UserPostsFeed from "./feed/tabs/personalizedfeed/PersonalizedFeed";
 import CrinzExplorer from "./pages/CrinzSubmit";
 import AboutApp from "./pages/about";
-import Extras from "./pages/Extras";
+import CrinzProfile from "./profile/CrinzProfile"; // ✅ Use the new simplified component
 import PostsAllPage from "./profile/PostsAllPage";
 import ReelsAllPage from "./profile/ReelsAllPage";
 import SharedCrinzFeedPost from "./pages/SharedCrinzFeedPost";
@@ -18,13 +19,12 @@ import TermsPage from "./pages/TermsPage";
 import GoodBye from "./pages/GoodBye";
 import PrivacySettingsPage from "./pages/PrivacySettingsPage";
 import NetworkErrorChip from "./components/NetworkErrorPopup";
-import { FloatingActionButton } from "./components/FloatingActionButton";
 
 import CreatePost from "./feed/tabs/createPost";
 import CreateReel from "./feed/tabs/createReel";
 
 import ProfileMorePosts from "./profile/ProfileMorePosts";
-import OthersProfileView from "./profile/OthersProfileView";
+// ❌ Remove: import OthersProfileView from "./profile/OthersProfileView"; // No longer needed
 
 import RegisterCallback from "./components/RegisterCallback";
 import UserDetailsForm from "./components/UserDetailsForm";
@@ -33,16 +33,12 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./hooks/Layout";
 import AuthManager from "./utils/refreshGen";
 
-import ShowFollowers from "./following/ShowFollowers";
-import ShowFollowing from "./following/ShowFollowing";
+import ShowFollowers from "./profile/following/ShowFollowers";
+import ShowFollowing from "./profile/following/ShowFollowing";
 import SharedContentPage from "./pages/SharedContentPage";
 import "./App.css";
-import { AdsProvider } from "./context/AdsContext";
-import AdsScriptLoader from "./components/AdsScriptLoader";
 
 const App = () => {
-  const auth = useAuth();
-
   return (
     <HeadProvider>
       <AdsProvider>
@@ -50,7 +46,6 @@ const App = () => {
         <BrowserRouter>
           <AuthManager />
           <NetworkErrorChip />
-          {auth.isAuthenticated && <FloatingActionButton />}
           <Routes>
             {/* All pages with navbar */}
             <Route element={<Layout />}>
@@ -66,23 +61,24 @@ const App = () => {
               {/* ADD SHARED CONTENT ROUTE HERE */}
               <Route path="/shared/:contentType/:contentId" element={<SharedContentPage />} />
 
-              {/* Protected routes - profile tab handles new user setup */}
+              {/* Protected routes */}
               <Route path="/feed/personalizedfeed" element={<ProtectedRoute><UserPostsFeed /></ProtectedRoute>} />
               <Route path="/feed/crinzmessagesfeed" element={<ProtectedRoute><GlobalFeed /></ProtectedRoute>} />
               <Route path="/feed/reelsfeed" element={<ProtectedRoute><ReelsFeed /></ProtectedRoute>} />
-              <Route path="/extras" element={<ProtectedRoute><Extras /></ProtectedRoute>} />
               <Route path="/posts/:userId/allposts" element={<PostsAllPage />} />
               <Route path="/reels/:userId/allreels" element={<ReelsAllPage />} />
               <Route path="/contributeCrinz" element={<ProtectedRoute><CrinzExplorer /></ProtectedRoute>} />
               <Route path="/addPostCrinz" element={<ProtectedRoute><CreatePost /></ProtectedRoute>} />
               <Route path="/addVideoCrinz" element={<ProtectedRoute><CreateReel /></ProtectedRoute>} />
               <Route path="/postUserDetails" element={<ProtectedRoute><UserDetailsForm /></ProtectedRoute>} />
-              <Route path="/profile/:sub" element={<ProtectedRoute><OthersProfileView /></ProtectedRoute>} />
+              
+              <Route path="/profile" element={<ProtectedRoute><CrinzProfile /></ProtectedRoute>} />
+              <Route path="/profile/:sub" element={<CrinzProfile />} />
+              
               <Route path="/profile/:sub/messages" element={<ProtectedRoute><ProfileMorePosts /></ProtectedRoute>} />
               <Route path="/profile/:userSub/more" element={<ProtectedRoute><ProfileMorePosts /></ProtectedRoute>} />
               <Route path="/profile/:userId/followers" element={<ProtectedRoute> <ShowFollowers /> </ProtectedRoute>} />
               <Route path="/profile/:userId/following" element={<ProtectedRoute> <ShowFollowing /> </ProtectedRoute>} />
-
             </Route>
 
             {/* Routes without navbar */}
