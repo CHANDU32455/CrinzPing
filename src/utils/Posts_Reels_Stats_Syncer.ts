@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { batchSyncer, type BatchAction, useBatchSync } from '../feed/utils/msgsBatchSyncer';
-
+import { batchSyncer, type BatchAction, useBatchSync } from './msgsBatchSyncer';
 // Extended types for all content types
 export type ContentType = 'crinz_message' | 'post' | 'reel';
 

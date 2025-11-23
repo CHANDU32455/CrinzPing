@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import SignUpButton from "../components/signupButton"; 
+import SignUpButton from "../components/auth/SignupButton";
 import { useNavigate } from "react-router-dom";
 
 const GoodBye: React.FC = () => {
@@ -70,7 +70,7 @@ const GoodBye: React.FC = () => {
             margin: "0 0 30px 0"
           }}
         >
-          Your account has been successfully deleted. We're sad to see you go, 
+          Your account has been successfully deleted. We're sad to see you go,
           but we respect your decision. All your data has been permanently removed.
         </p>
 
@@ -119,3 +119,6 @@ const GoodBye: React.FC = () => {
 };
 
 export default GoodBye;
+
+
+

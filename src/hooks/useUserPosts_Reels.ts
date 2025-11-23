@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "react-oidc-context";
+import { indexedDBCache } from "../utils/indexedDBCache";
 
 type FileItem = {
   s3Key: string;
@@ -33,6 +34,13 @@ type ApiResponse = {
   lastKey?: string;
 };
 
+type CachedData = {
+  posts: Post[];
+  userDetails: UserDetails;
+  hasMore: boolean;
+  lastKey: string | null;
+};
+
 export const useUserPosts = (type: "crinzpostsmeme" | "crinzpostsreels", userId?: string) => {
   const { user } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
@@ -41,8 +49,34 @@ export const useUserPosts = (type: "crinzpostsmeme" | "crinzpostsreels", userId?
   const [hasMore, setHasMore] = useState(true);
   const [lastKey, setLastKey] = useState<string | null>(null);
 
-  const fetchData = async (isLoadMore = false) => {
+  // Generate unique cache key based on type and userId
+  const getCacheKey = () => {
+    const typeKey = type === "crinzpostsmeme" ? "memes" : "reels";
+    return `user_posts_${userId || user?.profile?.sub}_${typeKey}`;
+  };
+
+  const fetchData = async (isLoadMore = false, isRefresh = false) => {
     if (!user?.access_token) return;
+
+    // Cache First Strategy: Only fetch if no cache exists OR explicit refresh OR pagination
+    if (!isLoadMore && !isRefresh) {
+      try {
+        const cacheKey = getCacheKey();
+        const cachedData = await indexedDBCache.getItem<CachedData>(cacheKey);
+        if (cachedData) {
+          console.log(`[Posts Cache HIT] Using cached data for ${type}`);
+          setPosts(cachedData.posts);
+          setUserDetails(cachedData.userDetails);
+          setLastKey(cachedData.lastKey);
+          setHasMore(cachedData.hasMore);
+          setLoading(false);
+          return; // Skip API call
+        }
+      } catch (error) {
+        console.error('[IndexedDB] Cache read failed, continuing with fetch:', error);
+        // Continue to fetch if cache fails
+      }
+    }
 
     const payload: any = {
       type,
@@ -76,6 +110,20 @@ export const useUserPosts = (type: "crinzpostsmeme" | "crinzpostsreels", userId?
           setPosts(prev => [...prev, ...data.posts]);
         } else {
           setPosts(data.posts);
+          // Update IndexedDB cache (only for first page)
+          try {
+            const cacheKey = getCacheKey();
+            const cacheData: CachedData = {
+              posts: data.posts,
+              userDetails: data.userDetails || { userName: "", userProfilePic: "", userTagline: "" },
+              hasMore: data.hasMore === true,
+              lastKey: data.lastKey || null
+            };
+            await indexedDBCache.setItem(cacheKey, cacheData, 3600000); // 1 hour TTL
+          } catch (cacheError) {
+            console.error('[IndexedDB] Cache write failed (continuing):', cacheError);
+            // Continue without caching - app still works
+          }
         }
         setUserDetails(data.userDetails || null);
         setLastKey(data.lastKey || null);
@@ -90,7 +138,7 @@ export const useUserPosts = (type: "crinzpostsmeme" | "crinzpostsreels", userId?
 
   const loadMore = () => {
     if (hasMore && !loading) {
-      fetchData(true);
+      fetchData(true, false);
     }
   };
 
@@ -99,12 +147,12 @@ export const useUserPosts = (type: "crinzpostsmeme" | "crinzpostsreels", userId?
     setUserDetails(null);
     setLastKey(null);
     setHasMore(true);
-    fetchData(false);
+    fetchData(false, true); // Explicit refresh
   };
 
   useEffect(() => {
     setLoading(true);
-    fetchData(false).finally(() => setLoading(false));
+    fetchData(false, false).finally(() => setLoading(false));
   }, [type, user?.access_token, userId]);
 
   return {

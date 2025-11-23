@@ -1,11 +1,11 @@
 import React, { useState, type FormEvent, type KeyboardEvent } from 'react';
-import { ContributeSeo } from '../components/Seo';
+import { ContributeSeo } from '../components/shared/Seo';
 import Select from "react-select";
 import { useCrinzLogic } from "../hooks/useCrinzLogic";
 import { jwtDecode } from 'jwt-decode';
 import { useNavigate } from 'react-router-dom';
 import type { CrinzMessage } from '../hooks/UserInfo';
-import "../css/crinzsubmit.css";
+import "../styles/crinz-submit.css";
 
 interface CognitoIdTokenPayload {
     sub: string;

@@ -2,13 +2,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "react-oidc-context";
-import PostTile from "../components/PostTile";
-import ReelTile from "../components/ReelTile";
-import CrinzTile from "../components/CrinzMessageTile";
-import CommentModal from "../feed/commentModal";
-import ShareComponent from "../feed/ShareComponent";
+import PostTile from "../components/feed/PostTile";
+import ReelTile from "../components/feed/ReelTile";
+import CrinzTile from "../components/feed/CrinzMessageTile";
+import CommentModal from "../components/feed/CommentModal";
+import ShareComponent from "../components/shared/ShareComponent";
 import { contentManager } from "../utils/Posts_Reels_Stats_Syncer";
-import SyncStatusIndicator from "../feed/utils/SyncStatusIndicator";
+import SyncStatusIndicator from "../utils/SyncStatusIndicator";
 
 interface SharedContent {
     id: string;

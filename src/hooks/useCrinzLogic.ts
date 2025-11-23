@@ -1,5 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useAuth } from "react-oidc-context";
+import { useCache } from "../context/CacheContext";
+import { contentManager } from "../utils/Posts_Reels_Stats_Syncer";
 
 export interface User {
   userName: string;
@@ -22,6 +24,7 @@ export interface CrinzResponse {
 
 export function useCrinzLogic() {
   const auth = useAuth();
+  const { getItem, setItem } = useCache();
 
   const [crinzData, setCrinzData] = useState<CrinzResponse | null>(null);
   const [showTile, setShowTile] = useState(false);
@@ -76,12 +79,8 @@ export function useCrinzLogic() {
       setCrinzData(data);
       setShowTile(true);
 
-      // Cache with timestamp
-      const cacheData = {
-        ...data,
-        cachedAt: Date.now()
-      };
-      localStorage.setItem("crinz_cache", JSON.stringify(cacheData));
+      // Cache with timestamp (using CacheContext)
+      setItem("crinz_cache", data, 3600000);
 
       return data;
     } catch (err) {
@@ -96,93 +95,73 @@ export function useCrinzLogic() {
     } finally {
       setIsFetching(false);
     }
-  }, [auth.user?.access_token]);
+  }, [auth.user?.access_token, setItem]);
 
   const toggleAutoMode = useCallback(() => {
     const updated = !autoMode;
     setAutoMode(updated);
-    localStorage.setItem("crinz_auto_enabled", String(updated));
+    setItem("crinz_auto_enabled", updated, 30 * 24 * 60 * 60 * 1000);
 
     if (updated) {
-      // If enabling auto mode, do an immediate check
       const hour = new Date().getHours();
       lastHourRef.current = hour;
     }
-  }, [autoMode]);
+  }, [autoMode, setItem]);
 
-  const likeCrinz = useCallback(async (crinzId: string): Promise<boolean> => {
-    if (!auth.user?.access_token) return false;
+  const updateCrinzCache = useCallback((updatedData: CrinzResponse) => {
+    setCrinzData(updatedData);
+    setItem("crinz_cache", updatedData, 3600000);
+  }, [setItem]);
 
-    try {
-      const res = await fetch(`${import.meta.env.VITE_BASE_API_URL}/likeCrinz`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${auth.user.access_token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ crinzId }),
-      });
+  const likeCrinz = useCallback((crinzId: string) => {
+    if (!auth.isAuthenticated || !auth.user?.profile?.sub || !crinzData) return;
 
-      if (res.ok) {
-        // Optimistically update the UI
-        setCrinzData(prev => prev ? {
-          ...prev,
-          likeCount: prev.isLiked ? prev.likeCount - 1 : prev.likeCount + 1,
-          isLiked: !prev.isLiked
-        } : null);
-        return true;
-      }
-      return false;
-    } catch (err) {
-      console.error("Like error:", err);
-      return false;
-    }
-  }, [auth.user?.access_token]);
+    const userId = auth.user.profile.sub;
+    const isLiked = crinzData.isLiked;
+
+    // Use contentManager for syncing
+    contentManager.likeContent(crinzId, 'crinz_message', userId, isLiked);
+
+    // Optimistic update local state
+    const newLikeCount = isLiked ? Math.max(0, crinzData.likeCount - 1) : crinzData.likeCount + 1;
+    const newIsLiked = !isLiked;
+
+    const updated = {
+      ...crinzData,
+      isLiked: newIsLiked,
+      likeCount: newLikeCount
+    };
+
+    setCrinzData(updated);
+    updateCrinzCache(updated);
+  }, [auth.isAuthenticated, auth.user, crinzData, updateCrinzCache]);
 
   const clearError = useCallback(() => {
     setError(null);
   }, []);
 
-  // Check if cache is stale (older than 1 hour)
-  const isCacheStale = useCallback((cachedAt: number) => {
-    return Date.now() - cachedAt > 60 * 60 * 1000; // 1 hour
-  }, []);
-
   // Load cached roast when user logs in
   useEffect(() => {
     if (auth.isAuthenticated) {
-      const cached = localStorage.getItem("crinz_cache");
-      const auto = localStorage.getItem("crinz_auto_enabled");
+      const cached = getItem<CrinzResponse>("crinz_cache");
+      const auto = getItem<boolean>("crinz_auto_enabled");
 
       if (cached) {
-        try {
-          const parsed = JSON.parse(cached);
-
-          // Check if cache is stale
-          if (parsed.cachedAt && !isCacheStale(parsed.cachedAt)) {
-            setCrinzData(parsed);
-            setShowTile(true);
-          } else {
-            // Cache is stale, fetch new data
-            getCrinzMessage();
-          }
-        } catch {
-          localStorage.removeItem("crinz_cache");
-          getCrinzMessage();
-        }
+        setCrinzData(cached);
+        setShowTile(true);
       } else {
-        // No cache, fetch immediately
+        // No cache or expired, fetch immediately
         getCrinzMessage();
       }
 
-      if (auto === "false") setAutoMode(false);
+      if (auto === false) setAutoMode(false);
     } else {
       // User logged out, clear state
       setCrinzData(null);
       setShowTile(false);
       setError(null);
     }
-  }, [auth.isAuthenticated, getCrinzMessage, isCacheStale]);
+  }, [auth.isAuthenticated, getCrinzMessage, getItem]);
 
   // Auto fetch at 6/12/18 hrs with improved logic
   useEffect(() => {
@@ -229,5 +208,6 @@ export function useCrinzLogic() {
     getCrinzMessage,
     likeCrinz,
     clearError,
+    updateCrinzCache,
   };
 }

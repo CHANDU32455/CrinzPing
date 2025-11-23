@@ -1,8 +1,9 @@
 import { useEffect, useState, useRef } from "react";
 import { useCrinzLogic, type CrinzResponse } from "../hooks/useCrinzLogic";
-import LoggedInView from "../components/LoggedInView";
-import LoggedOutView from "../components/LoggedOutView";
-import { HomeSeo } from "../components/Seo";
+import LoggedInView from "../components/auth/LoggedInView";
+import LoggedOutView from "../components/auth/LoggedOutView";
+import { HomeSeo } from "../components/shared/Seo";
+import { useCache } from "../context/CacheContext";
 
 function Home() {
   const {
@@ -13,27 +14,39 @@ function Home() {
     autoMode,
     toggleAutoMode,
     getCrinzMessage,
+    likeCrinz,
+    updateCrinzCache
   } = useCrinzLogic();
 
+  const { getItem } = useCache();
   const [localCrinz, setLocalCrinz] = useState<CrinzResponse | null>(null);
   const fetchedOnce = useRef(false);
 
   const fetchCrinzIfNeeded = async (
     reason: "empty" | "manual" | "time" | "auto"
   ): Promise<CrinzResponse | null> => {
-    const cached = localStorage.getItem("crinz_cache");
+    // Use CacheContext via useCrinzLogic or directly if needed, 
+    // but useCrinzLogic handles the main fetching and caching.
+    // Here we just want to ensure we display what's available.
 
-    const shouldFetch =
-      reason === "manual" || reason === "time" || !cached;
-
-    if (shouldFetch) {
+    // If reason is manual, we force fetch via getCrinzMessage
+    if (reason === "manual") {
       const data = await getCrinzMessage();
       if (data) setLocalCrinz(data);
-      return data || null;
+      return data;
+    }
+
+    // Otherwise rely on what useCrinzLogic provides or cache
+    const cached = getItem<CrinzResponse>("crinz_cache");
+
+    if (cached) {
+      setLocalCrinz(cached);
+      return cached;
     } else {
-      const cachedObj = cached ? JSON.parse(cached) : null;
-      setLocalCrinz(cachedObj);
-      return cachedObj;
+      // If no cache and we need to fetch
+      const data = await getCrinzMessage();
+      if (data) setLocalCrinz(data);
+      return data;
     }
   };
 
@@ -48,10 +61,21 @@ function Home() {
       setLocalCrinz(crinzData);
     }
   }, [crinzData]);
-
   const manualRefreshCrinz = async () => {
     const data = await fetchCrinzIfNeeded("manual");
     return data ? data : null;
+  };
+
+  const handleLike = () => {
+    if (!localCrinz) return;
+    likeCrinz(localCrinz.crinzId);
+  };
+
+  const handleCommentUpdate = (newCount: number) => {
+    if (!localCrinz) return;
+    const updated = { ...localCrinz, commentCount: newCount };
+    setLocalCrinz(updated);
+    updateCrinzCache(updated);
   };
 
   return (
@@ -69,6 +93,8 @@ function Home() {
           autoMode={autoMode}
           toggleAutoMode={toggleAutoMode}
           getCrinzMessage={manualRefreshCrinz}
+          onLike={handleLike}
+          onCommentUpdate={handleCommentUpdate}
         />
       ) : (
         <LoggedOutView />

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "react-oidc-context";
 import { decodePostData } from "../utils/encodeDecode";
-import "../css/CrinzFeed.css";
+import "../styles/crinz-feed.css";
 
 interface CrinzPost {
   crinzId: string;

@@ -10,7 +10,7 @@ const CRINZ_API_URL = `${BASE_API_URL}/fetchUserPosts`;
 export interface CrinzMessage {
   crinzId: string;
   message: string;
-  tags? : string[];
+  tags?: string[];
   likeCount?: number;
   commentCount?: number;
   timestamp?: string;
