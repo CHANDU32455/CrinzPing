@@ -4,7 +4,7 @@ import { useAuth } from "react-oidc-context";
 import SignOutButton from "../auth/SignOutButton";
 import logo from "../../assets/CrinzPing.png";
 import BottomNavbar from "./BottomNavbar";
-import "../../styles/Layout.css";
+import "../../styles/layout.css";
 
 const Layout: React.FC = () => {
   const auth = useAuth();
