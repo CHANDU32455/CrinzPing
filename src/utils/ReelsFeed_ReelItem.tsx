@@ -66,7 +66,7 @@ const ReelItem: React.FC<ReelItemProps> = ({
       <div className="reel-video-container">
         {reel.files[0]?.presignedUrl && (
           <>
-            <div 
+            <div
               className="reel-tap-area"
               onDoubleClick={(e) => onDoubleTap(index, e)}
               onClick={() => onVideoClick(index)}

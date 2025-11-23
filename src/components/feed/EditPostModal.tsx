@@ -1,7 +1,7 @@
 // components/EditPostModal.tsx
 import React, { useState } from "react";
 import ReactDOM from "react-dom";
-import type { CrinzMessage } from "../hooks/UserInfo";
+import type { CrinzMessage } from "../../hooks/UserInfo";
 
 interface EditPostModalProps {
   post: CrinzMessage;

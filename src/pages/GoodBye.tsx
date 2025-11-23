@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import SignUpButton from "../components/auth/SignupButton";
+import SignUpButton from "../components/auth/signupButton";
 import { useNavigate } from "react-router-dom";
 
 const GoodBye: React.FC = () => {

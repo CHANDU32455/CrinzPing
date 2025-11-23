@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { APP_CONFIG } from "../config/appConfig";
+import { APP_CONFIG } from "../../config/appConfig";
 
 const AdsScriptLoader = () => {
   const adsEnabled = APP_CONFIG.ads;
