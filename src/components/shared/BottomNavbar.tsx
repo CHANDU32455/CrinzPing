@@ -4,7 +4,7 @@ import Home from '../../pages/home';
 import GlobalFeed from '../../pages/GlobalFeed';
 import ReelsFeed from '../../pages/ReelsFeed';
 import CrinzProfile from '../../pages/CrinzProfile';
-import '../../styles/Layout.css'; // We'll add styles here
+import "../../styles/layout.css";
 
 const BottomNavbar: React.FC = () => {
     const navigate = useNavigate();
