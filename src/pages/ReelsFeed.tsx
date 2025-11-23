@@ -5,7 +5,7 @@ import ShareComponent from "../components/shared/ShareComponent";
 import CommentModal from "../components/feed/CommentModal";
 import { contentManager } from "../utils/Posts_Reels_Stats_Syncer";
 import { useAuth } from "react-oidc-context";
-import "../css/ReelsFeed.css";
+import "../styles/reels-feed.css"
 
 interface LocalReel extends Reel {
   isLiked?: boolean;
