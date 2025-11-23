@@ -444,6 +444,11 @@ const CrinzProfile: React.FC = () => {
                                     {tab.toUpperCase()}
                                 </button>
                             ))}
+                            {isOwnProfile && (
+                                <div className="flex-1 flex justify-end pr-4">
+                                    <FloatingActionButton />
+                                </div>
+                            )}
                         </div>
 
                         <div className="py-6">
@@ -532,13 +537,6 @@ const CrinzProfile: React.FC = () => {
                     </div>
                 )}
             </div>
-
-            {/* Floating Action Button */}
-            {isOwnProfile && mainActiveTab === 'profile' && (
-                <div className="fixed bottom-6 right-6">
-                    <FloatingActionButton />
-                </div>
-            )}
         </div>
     );
 };

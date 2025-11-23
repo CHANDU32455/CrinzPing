@@ -4,6 +4,7 @@ import LoggedInView from "../components/auth/LoggedInView";
 import LoggedOutView from "../components/auth/LoggedOutView";
 import { HomeSeo } from "../components/shared/Seo";
 import { useCache } from "../context/CacheContext";
+import CrinzLoader from "../components/shared/CrinzLoader";
 
 function Home() {
   const {
@@ -82,7 +83,7 @@ function Home() {
     <div className="app-container home-container">
       <HomeSeo />
       {auth.isLoading ? (
-        <div>Loading...</div>
+        <CrinzLoader text="Authenticating..." />
       ) : auth.error ? (
         <div>Error: {typeof auth.error === "string" ? auth.error : auth.error?.message}</div>
       ) : auth.isAuthenticated ? (

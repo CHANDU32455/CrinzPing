@@ -1,0 +1,175 @@
+/* Crinz Loader Styles */
+
+.crinz-loader-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.crinz-loader-container.centered {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+}
+
+.crinz-loader {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Size variants */
+.crinz-loader.small {
+    width: 40px;
+    height: 40px;
+}
+
+.crinz-loader.medium {
+    width: 60px;
+    height: 60px;
+}
+
+.crinz-loader.large {
+    width: 80px;
+    height: 80px;
+}
+
+/* Spinner container */
+.crinz-spinner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    animation: crinz-pulse 2s ease-in-out infinite;
+}
+
+/* Rotating rings */
+.crinz-ring {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    animation: crinz-rotate 2s linear infinite;
+}
+
+.crinz-ring-1 {
+    border-top-color: #00ffcc;
+    border-right-color: #00ffcc;
+    animation-duration: 1.5s;
+    opacity: 0.8;
+}
+
+.crinz-ring-2 {
+    border-bottom-color: #00FF00;
+    border-left-color: #00FF00;
+    animation-duration: 2s;
+    animation-direction: reverse;
+    opacity: 0.6;
+}
+
+.crinz-ring-3 {
+    border-top-color: rgba(0, 255, 204, 0.4);
+    border-bottom-color: rgba(0, 255, 0, 0.4);
+    animation-duration: 2.5s;
+    opacity: 0.5;
+    filter: blur(1px);
+}
+
+/* Core pulsing circle */
+.crinz-core {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 30%;
+    height: 30%;
+    background: radial-gradient(circle, #00ffcc 0%, transparent 70%);
+    border-radius: 50%;
+    animation: crinz-core-pulse 1.5s ease-in-out infinite;
+    box-shadow:
+        0 0 10px rgba(0, 255, 204, 0.5),
+        0 0 20px rgba(0, 255, 0, 0.3),
+        inset 0 0 10px rgba(0, 255, 204, 0.3);
+}
+
+/* Loading text */
+.crinz-loader-text {
+    color: #00ffcc;
+    font-family: 'Fira Code', monospace;
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin: 0;
+    text-align: center;
+    animation: crinz-text-fade 1.5s ease-in-out infinite;
+    text-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
+}
+
+/* Keyframe animations */
+@keyframes crinz-rotate {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes crinz-pulse {
+
+    0%,
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    50% {
+        transform: scale(1.05);
+        opacity: 0.9;
+    }
+}
+
+@keyframes crinz-core-pulse {
+
+    0%,
+    100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 0.8;
+    }
+
+    50% {
+        transform: translate(-50%, -50%) scale(1.3);
+        opacity: 1;
+    }
+}
+
+@keyframes crinz-text-fade {
+
+    0%,
+    100% {
+        opacity: 0.7;
+    }
+
+    50% {
+        opacity: 1;
+    }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .crinz-loader.medium {
+        width: 50px;
+        height: 50px;
+    }
+
+    .crinz-loader-text {
+        font-size: 0.85rem;
+    }
+}
