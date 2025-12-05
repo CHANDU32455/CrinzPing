@@ -1,7 +1,6 @@
-import SEO from "./SEO";
+import { SEO } from "./SEO";
+
 const DEFAULT_IMAGE = 'https://crinzping.com/og-image.png';
-
-
 
 /**
  * SEO Components for common pages

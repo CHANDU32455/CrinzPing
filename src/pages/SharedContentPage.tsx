@@ -7,9 +7,9 @@ import ReelTile from "../components/feed/ReelTile";
 import CrinzTile from "../components/feed/CrinzMessageTile";
 import CommentModal from "../components/feed/CommentModal";
 import ShareComponent from "../components/shared/ShareComponent";
-import SEO from "../components/shared/SEO";
 import { contentManager } from "../utils/Posts_Reels_Stats_Syncer";
 import { API_ENDPOINTS } from "../constants/apiEndpoints";
+import SEO from "../components/shared/SEO";
 
 interface CommentItem {
     id: string;
