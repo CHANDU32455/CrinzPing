@@ -1,24 +1,52 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useInViewport } from '../../hooks/useInViewPort';
 import { useAudioPlayer, useMediaManager } from '../../hooks/useMediaManager';
 import ProfilePicture from '../shared/ProfilePicture';
 import ImageCarousel from './personalized/ImageCarousel';
 import EngagementButtons from './personalized/EngagementButtons';
 
+interface PostFile {
+  type: string;
+  url: string;
+  id?: string;
+  name?: string;
+}
+
+interface PostUser {
+  profilePic?: string;
+  userName?: string;
+  tagline?: string;
+}
+
+interface PostItem {
+  id: string;
+  userId?: string;
+  user?: PostUser;
+  timestamp: string;
+  content?: string;
+  files?: PostFile[];
+  likeCount?: number;
+  commentCount?: number;
+  shareCount?: number;
+  isLiked?: boolean;
+}
+
 interface PostTileProps {
-  item: any;
+  item: PostItem;
   onComment: () => void;
   onShare: () => void;
   onLikeUpdate?: (contentId: string, newLikeCount: number, isLiked: boolean) => void;
 }
 
 const PostTile: React.FC<PostTileProps> = ({ item, onComment, onShare, onLikeUpdate }) => {
+  const navigate = useNavigate();
   const { ref, isInViewport, hasBeenInViewport } = useInViewport({ threshold: 0.7 });
   const { playAudio, stopAudio } = useAudioPlayer();
   const { activateMedia, deactivateMedia } = useMediaManager();
 
-  const audioFile = item.files?.find((f: any) => f.type.startsWith('audio/'));
-  const imageFiles = item.files?.filter((f: any) => f.type.startsWith('image/')) || [];
+  const audioFile = item.files?.find((f: PostFile) => f.type.startsWith('audio/'));
+  const imageFiles = item.files?.filter((f: PostFile) => f.type.startsWith('image/')) || [];
 
   // Handle audio based on viewport
   React.useEffect(() => {
@@ -31,7 +59,7 @@ const PostTile: React.FC<PostTileProps> = ({ item, onComment, onShare, onLikeUpd
     }
   }, [isInViewport, audioFile, item.id, playAudio, stopAudio, activateMedia, deactivateMedia]);
 
-  // ✅ UPDATED: Handle like with callback
+  // Handle like with callback
   const handleLike = React.useCallback(() => {
     // This will be handled by EngagementButtons with the callback
   }, []);
@@ -51,7 +79,13 @@ const PostTile: React.FC<PostTileProps> = ({ item, onComment, onShare, onLikeUpd
             borderColor="border-blue-500"
           />
           <div className="min-w-0 flex-1">
-            <p className="text-white font-semibold text-base truncate">
+            <p
+              className="text-white font-semibold text-base truncate underline cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (item.userId) navigate(`/profile/${item.userId}`);
+              }}
+            >
               {item.user?.userName || 'Anonymous'}
             </p>
             {item.user?.tagline && (
@@ -96,7 +130,7 @@ const PostTile: React.FC<PostTileProps> = ({ item, onComment, onShare, onLikeUpd
         onLike={handleLike}
         onShare={onShare}
         onComment={onComment}
-        onLikeUpdate={onLikeUpdate} // ✅ NEW: Pass like callback
+        onLikeUpdate={onLikeUpdate}
       />
     </div>
   );

@@ -7,7 +7,6 @@ import UserAvatar from "../utils/UserAvatar";
 import ShareComponent from "../components/shared/ShareComponent";
 import CommentModal from "../components/feed/CommentModal";
 import EditPostModal from "../components/feed/EditPostModal";
-import SyncStatusIndicator from "../utils/SyncStatusIndicator";
 import { contentManager } from "../utils/Posts_Reels_Stats_Syncer";
 import { batchSyncer, useBatchSync } from "../utils/msgsBatchSyncer";
 import "../styles/crinz-feed.css";
@@ -77,6 +76,27 @@ const ProfileMorePosts: React.FC = () => {
   const autoSyncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isOwnPost = userSub === currentUserId;
 
+
+  // Auto-sync function (for edit/delete actions only) - MOVED UP
+  const handleAutoSync = useCallback(async () => {
+    if (!hasPendingActions || isAutoSyncing || isSaving) return;
+
+    setIsAutoSyncing(true);
+    setSaveError(null);
+
+    try {
+      console.log("Auto-syncing pending actions:", getPendingActions());
+      await executePendingActions();
+      await fetchCrinzMessages();
+      console.log("Auto-sync completed successfully");
+    } catch (error) {
+      console.error("Auto-sync failed:", error);
+      setSaveError(error instanceof Error ? error.message : "Auto-sync failed");
+    } finally {
+      setIsAutoSyncing(false);
+    }
+  }, [hasPendingActions, isAutoSyncing, isSaving, getPendingActions, executePendingActions, fetchCrinzMessages]);
+
   // ✅ LISTEN FOR SYNC COMPLETION (FOR LIKES)
   useEffect(() => {
     if (syncState.syncStatus === 'success' && syncState.lastSyncTime) {
@@ -120,7 +140,7 @@ const ProfileMorePosts: React.FC = () => {
         clearTimeout(autoSyncTimeoutRef.current);
       }
     };
-  }, [hasPendingActions, isAutoSyncing, isSaving]);
+  }, [hasPendingActions, isAutoSyncing, isSaving, handleAutoSync]);
 
   // Auto-sync when coming online (for edit/delete actions only)
   useEffect(() => {
@@ -133,27 +153,7 @@ const ProfileMorePosts: React.FC = () => {
 
     window.addEventListener('online', handleOnline);
     return () => window.removeEventListener('online', handleOnline);
-  }, [hasPendingActions, isAutoSyncing]);
-
-  // Auto-sync function (for edit/delete actions only)
-  const handleAutoSync = async () => {
-    if (!hasPendingActions || isAutoSyncing || isSaving) return;
-
-    setIsAutoSyncing(true);
-    setSaveError(null);
-
-    try {
-      console.log("Auto-syncing pending actions:", getPendingActions());
-      await executePendingActions();
-      await fetchCrinzMessages();
-      console.log("Auto-sync completed successfully");
-    } catch (error) {
-      console.error("Auto-sync failed:", error);
-      setSaveError(error instanceof Error ? error.message : "Auto-sync failed");
-    } finally {
-      setIsAutoSyncing(false);
-    }
-  };
+  }, [hasPendingActions, isAutoSyncing, handleAutoSync]);
 
   // Show network error notifications
   useEffect(() => {
@@ -396,7 +396,7 @@ const ProfileMorePosts: React.FC = () => {
     const actionTypes = ['like', 'unlike', 'add_comment', 'remove_comment', 'update'];
     actionTypes.forEach(type => {
       clearPendingActionFor({
-        type: type as any,
+        type: type as 'like' | 'unlike' | 'add_comment' | 'remove_comment' | 'update', // Proper type assertion
         postId: postId
       });
     });
@@ -820,8 +820,6 @@ const ProfileMorePosts: React.FC = () => {
           <p>Loading more posts…</p>
         </div>
       )}
-
-      {process.env.NODE_ENV === 'development' && <SyncStatusIndicator />}
 
       {/* Comment Modal */}
       {selectedPost && (

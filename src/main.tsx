@@ -3,6 +3,7 @@ import App from "./App";
 import "./styles/app.css";
 import { AuthProvider } from "react-oidc-context";
 import { WebStorageStateStore } from "oidc-client-ts";
+import ErrorBoundary from "./components/shared/ErrorBoundary";
 
 const cognitoAuthConfig = {
   authority: import.meta.env.VITE_COGNITO_AUTHORITY,
@@ -20,7 +21,9 @@ const cognitoAuthConfig = {
 };
 
 createRoot(document.getElementById("root")!).render(
-  <AuthProvider {...cognitoAuthConfig}>
-    <App />
-  </AuthProvider>
+  <ErrorBoundary>
+    <AuthProvider {...cognitoAuthConfig}>
+      <App />
+    </AuthProvider>
+  </ErrorBoundary>
 );

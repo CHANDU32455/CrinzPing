@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useUserReels } from "../../hooks/useUserPosts_Reels";
 import { useState, useCallback, useRef, useEffect } from "react";
 import CreateReel from "../feed/CreateReel";
+import { API_ENDPOINTS } from "../../constants/apiEndpoints";
 
 interface UserReelsProps {
   userId?: string;
@@ -10,37 +11,78 @@ interface UserReelsProps {
   currentUserId?: string;
 }
 
-type ThumbnailPost = {
+interface FileItem {
+  url: string;
+  type: string;
+  isCustom?: boolean;
+  fileName?: string;
+}
+
+interface ThumbnailPost {
   postId: string;
   reelId?: string;
   userId: string;
-  files: Array<{
-    url: string;
-    type: string;
-    isCustom?: boolean;
-    fileName?: string;
-  }>;
+  files: FileItem[];
   caption?: string;
   tags?: string[];
   visibility?: string;
-};
+  thumbnailUrl?: string;
+  existingThumbnail?: FileItem;
+}
+
+// Match the CreateReel component's EditData interface
+interface EditModalData {
+  postId?: string;
+  reelId?: string;
+  caption?: string;
+  tags?: string[];
+  visibility?: "public" | "private";
+  videoUrl?: string;
+  thumbnailUrl?: string;
+  fileName?: string;
+  fileType?: string;
+  isEditMode?: boolean;
+  existingVideo?: FileItem | null;
+  existingThumbnail?: FileItem | null;
+  allFiles?: FileItem[];
+}
+
+interface DeleteResult {
+  success: boolean;
+  message: string;
+  details?: {
+    filesDeleted?: number;
+    likesDeleted?: number;
+    commentsDeleted?: number;
+  };
+}
+
+// Align with CreateReel's onSave parameter type
+interface SaveData {
+  postId?: string;
+  reelId?: string;
+  caption: string;
+  tags: string[];
+  visibility: "public" | "private";
+  thumbnail?: File | null;
+  thumbnailAction: "keep" | "remove" | "replace";
+}
 
 const ReelEditModal = ({ post, isOpen, onClose, onSave }: {
-  post: any;
+  post: EditModalData;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: any) => void;
+  onSave: (data: SaveData) => void;
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
 
-  const getEditData = () => {
-    const editData = {
+  const getEditData = (): EditModalData => {
+    const editData: EditModalData = {
       postId: post.postId,
       reelId: post.reelId,
       caption: post.caption || '',
       tags: post.tags || [],
       visibility: post.visibility || "public",
-      // Remove video-related fields since we don't allow video changes
       thumbnailUrl: post.thumbnailUrl,
       isEditMode: true,
       existingThumbnail: post.existingThumbnail
@@ -49,16 +91,16 @@ const ReelEditModal = ({ post, isOpen, onClose, onSave }: {
     return editData;
   };
 
-  // Handle save
-  const handleSave = (updatedData: any) => {
+  // Handle save - convert to SaveData format expected by CreateReel
+  const handleSave = (updatedData: SaveData) => {
     console.log('💾 Saving updated data:', updatedData);
     onSave(updatedData);
   };
 
-  // Handle modal close
-  const handleClose = () => {
+  // Handle modal close - wrapped in useCallback to fix useEffect dependency
+  const handleClose = useCallback(() => {
     onClose();
-  };
+  }, [onClose]);
 
   // Prevent body scroll and handle outside click
   useEffect(() => {
@@ -91,12 +133,12 @@ const ReelEditModal = ({ post, isOpen, onClose, onSave }: {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-[100] p-4">
+    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-[100] p-4 pb-20 sm:pb-4">
       <div
         ref={modalRef}
-        className="bg-gray-800 rounded-t-xl sm:rounded-xl max-w-4xl w-full max-h-[95vh] overflow-y-auto animate-slide-up sm:animate-scale-in"
+        className="bg-gray-800 rounded-t-xl sm:rounded-xl max-w-2xl w-full max-h-[85vh] overflow-y-auto animate-slide-up sm:animate-scale-in flex flex-col relative md:[&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
       >
-        <div className="sticky top-0 bg-gray-800 border-b border-gray-700 px-6 py-4 flex justify-between items-center">
+        <div className="sticky top-0 bg-gray-800 border-b border-gray-700 px-6 py-4 flex justify-between items-center z-10">
           <h3 className="text-xl font-bold">Edit Reel</h3>
           <button
             onClick={handleClose}
@@ -127,7 +169,7 @@ const DeleteConfirmModal = ({ isOpen, onCancel, onConfirm, isProcessing, deleteR
   onCancel: () => void;
   onConfirm: () => void;
   isProcessing: boolean;
-  deleteResult: { success: boolean; message: string; details?: any } | null;
+  deleteResult: DeleteResult | null;
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
 
@@ -269,10 +311,10 @@ const UserReels = ({ userId, previewMode = false, currentUserId }: UserReelsProp
   const [videoErrors, setVideoErrors] = useState<Record<string, boolean>>({});
   const [loadingThumbnails, setLoadingThumbnails] = useState<Record<string, boolean>>({});
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
-  const [editModal, setEditModal] = useState<{ isOpen: boolean; post: any } | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; post: any } | null>(null);
+  const [editModal, setEditModal] = useState<{ isOpen: boolean; post: EditModalData } | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; post: ThumbnailPost } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [deleteResult, setDeleteResult] = useState<{ success: boolean; message: string; details?: any } | null>(null);
+  const [deleteResult, setDeleteResult] = useState<DeleteResult | null>(null);
 
   const thumbnailQueue = useRef<Set<string>>(new Set());
   const isProcessingThumbnails = useRef(false);
@@ -303,16 +345,16 @@ const UserReels = ({ userId, previewMode = false, currentUserId }: UserReelsProp
     setMenuOpen(null);
 
     // Get the video file from post files
-    const videoFile = post.files?.find((f: any) => f.type.startsWith('video'));
-    const thumbnailFile = post.files?.find((f: any) => f.isCustom || f.type.startsWith('image'));
+    const videoFile = post.files?.find((f: FileItem) => f.type.startsWith('video'));
+    const thumbnailFile = post.files?.find((f: FileItem) => f.isCustom || f.type.startsWith('image'));
 
     // Prepare edit data with ALL necessary fields
-    const editData = {
+    const editData: EditModalData = {
       postId: post.postId,
       reelId: post.reelId,
       caption: post.caption || '',
       tags: post.tags || [],
-      visibility: post.visibility || "public",
+      visibility: (post.visibility as "public" | "private") || "public",
       // Video data
       videoUrl: videoFile?.url,
       fileName: videoFile?.fileName,
@@ -358,7 +400,7 @@ const UserReels = ({ userId, previewMode = false, currentUserId }: UserReelsProp
 
       console.log('🗑️ Deleting reel:', deletePayload);
 
-      const deleteRes = await fetch(`${import.meta.env.VITE_BASE_API_URL}/addCrinzMemePost`, {
+      const deleteRes = await fetch(`${import.meta.env.VITE_BASE_API_URL}${API_ENDPOINTS.CREATE_POST}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -392,20 +434,20 @@ const UserReels = ({ userId, previewMode = false, currentUserId }: UserReelsProp
         }, 1000);
       }, 1500);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Reel deletion failed:', error);
 
       // Set error result
       setDeleteResult({
         success: false,
-        message: error.message || "Failed to delete reel. Please try again."
+        message: error instanceof Error ? error.message : "Failed to delete reel. Please try again."
       });
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const handleSaveEdit = async (updatedData: any) => {
+  const handleSaveEdit = async (updatedData: SaveData) => {
     if (!editModal || !access_token) return;
 
     setIsProcessing(true);
@@ -413,15 +455,15 @@ const UserReels = ({ userId, previewMode = false, currentUserId }: UserReelsProp
     try {
       console.log('💾 Starting reel metadata update...', updatedData);
 
-      let thumbnailS3Key = null;
-      let thumbnailRemoved = updatedData.thumbnailRemoved;
+      let thumbnailS3Key: string | null = null;
+      const thumbnailRemoved = updatedData.thumbnailAction === 'remove';
 
       // Handle thumbnail changes
-      if (updatedData.thumbnail instanceof File) {
+      if (updatedData.thumbnailAction === 'replace' && updatedData.thumbnail instanceof File) {
         console.log('🖼️ Uploading new thumbnail...');
 
         const safeThumbnailFilename = encodeURIComponent(updatedData.thumbnail.name.replace(/[^a-zA-Z0-9.-]/g, '_'));
-        const thumbnailPresignRes = await fetch(`${import.meta.env.VITE_BASE_API_URL}/reelContentUploader`, {
+        const thumbnailPresignRes = await fetch(`${import.meta.env.VITE_BASE_API_URL}${API_ENDPOINTS.REEL_CONTENT_UPLOADER}`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -451,9 +493,23 @@ const UserReels = ({ userId, previewMode = false, currentUserId }: UserReelsProp
       }
 
       // Prepare update payload
-      const updatePayload: any = {
+      const updatePayload: {
+        action: string;
+        postId: string;
+        metadata: {
+          caption: string;
+          tags: string[];
+          visibility: "public" | "private";
+          thumbnail?: {
+            s3Key: string;
+            fileName: string;
+            type: string;
+            isCustom: boolean;
+          } | null;
+        };
+      } = {
         action: "REELUPDATE",
-        postId: updatedData.postId,
+        postId: updatedData.postId!,
         metadata: {
           caption: updatedData.caption,
           tags: updatedData.tags,
@@ -466,8 +522,8 @@ const UserReels = ({ userId, previewMode = false, currentUserId }: UserReelsProp
         // New thumbnail uploaded
         updatePayload.metadata.thumbnail = {
           s3Key: thumbnailS3Key,
-          fileName: updatedData.thumbnail.name,
-          type: updatedData.thumbnail.type,
+          fileName: updatedData.thumbnail?.name || "thumbnail.jpg",
+          type: updatedData.thumbnail?.type || "image/jpeg",
           isCustom: true
         };
       } else if (thumbnailRemoved) {
@@ -478,7 +534,7 @@ const UserReels = ({ userId, previewMode = false, currentUserId }: UserReelsProp
 
       console.log('📤 Sending metadata update to backend:', updatePayload);
 
-      const updateRes = await fetch(`${import.meta.env.VITE_BASE_API_URL}/addCrinzMemePost`, {
+      const updateRes = await fetch(`${import.meta.env.VITE_BASE_API_URL}${API_ENDPOINTS.CREATE_POST}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -499,9 +555,9 @@ const UserReels = ({ userId, previewMode = false, currentUserId }: UserReelsProp
       refreshPosts();
       setEditModal(null);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Reel metadata update failed:', error);
-      alert(`Failed to update reel: ${error.message}`);
+      alert(`Failed to update reel: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsProcessing(false);
     }
@@ -518,10 +574,10 @@ const UserReels = ({ userId, previewMode = false, currentUserId }: UserReelsProp
   }, [menuOpen]);
 
   const getThumbnail = useCallback((post: ThumbnailPost) => {
-    const customThumbnail = post.files.find((file: any) => file.isCustom);
+    const customThumbnail = post.files.find((file: FileItem) => file.isCustom);
     if (customThumbnail) return customThumbnail.url;
 
-    const imageFile = post.files.find((file: any) => file.type.startsWith("image"));
+    const imageFile = post.files.find((file: FileItem) => file.type.startsWith("image"));
     if (imageFile) return imageFile.url;
 
     if (thumbnails[post.postId]) {
@@ -546,7 +602,7 @@ const UserReels = ({ userId, previewMode = false, currentUserId }: UserReelsProp
       return;
     }
 
-    const videoFile = post.files.find((file: any) => file.type.startsWith("video"));
+    const videoFile = post.files.find((file: FileItem) => file.type.startsWith("video"));
     if (!videoFile || videoErrors[postId]) {
       isProcessingThumbnails.current = false;
       setTimeout(processThumbnailQueue, 100);
@@ -579,7 +635,10 @@ const UserReels = ({ userId, previewMode = false, currentUserId }: UserReelsProp
       video.muted = true;
       video.playsInline = true;
 
-      let timeoutId: NodeJS.Timeout;
+      const timeoutId: NodeJS.Timeout = setTimeout(() => {
+        cleanup();
+        reject(new Error('Thumbnail generation timeout'));
+      }, 10000);
 
       const cleanup = () => {
         video.removeEventListener('loadeddata', onLoadedData);
@@ -630,18 +689,13 @@ const UserReels = ({ userId, previewMode = false, currentUserId }: UserReelsProp
         reject(new Error(`Video load error: ${e.message}`));
       };
 
-      timeoutId = setTimeout(() => {
-        cleanup();
-        reject(new Error('Thumbnail generation timeout'));
-      }, 10000);
-
       video.addEventListener('loadeddata', onLoadedData);
       video.addEventListener('error', onError);
       video.addEventListener('canplay', onCanPlay);
     });
   };
 
-  const handleReelClick = useCallback((post: any) => {
+  const handleReelClick = useCallback((post: ThumbnailPost) => {
     // Don't navigate if menu is open or modal is open
     if (menuOpen || editModal || deleteConfirm || isProcessing) return;
 
@@ -654,14 +708,14 @@ const UserReels = ({ userId, previewMode = false, currentUserId }: UserReelsProp
         }
       });
     }
-  }, [userId, navigate, posts, menuOpen, editModal, deleteConfirm, isProcessing]);
+  }, [userId, navigate, posts, menuOpen, editModal, deleteConfirm, isProcessing, videoErrors]);
 
 
   // Queue thumbnails for generation when posts change
   const queueThumbnails = useCallback(() => {
     posts.forEach(post => {
-      const hasCustomThumb = post.files.find((file: any) => file.isCustom);
-      const hasImage = post.files.find((file: any) => file.type.startsWith("image"));
+      const hasCustomThumb = post.files.find((file: FileItem) => file.isCustom);
+      const hasImage = post.files.find((file: FileItem) => file.type.startsWith("image"));
 
       if (!hasCustomThumb && !hasImage && !thumbnails[post.postId] && !videoErrors[post.postId]) {
         thumbnailQueue.current.add(post.postId);
@@ -712,7 +766,7 @@ const UserReels = ({ userId, previewMode = false, currentUserId }: UserReelsProp
           const thumbnail = getThumbnail(post);
           const isCorrupted = videoErrors[post.postId];
           const isLoading = loadingThumbnails[post.postId];
-          const hasAudio = post.files.some((f: any) => f.type.startsWith('audio'));
+          const hasAudio = post.files.some((f: FileItem) => f.type.startsWith('audio'));
 
           return (
             <div

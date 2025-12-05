@@ -1,30 +1,58 @@
 import React, { useRef, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useInViewport } from '../../hooks/useInViewPort';
 import { useVideoPlayer, useMediaManager } from '../../hooks/useMediaManager';
 import ProfilePicture from '../shared/ProfilePicture';
 import EngagementButtons from './personalized/EngagementButtons';
 
+interface ReelFile {
+  type: string;
+  url: string;
+  id?: string;
+  name?: string;
+}
+
+interface ReelUser {
+  profilePic?: string;
+  userName?: string;
+  tagline?: string;
+}
+
+interface ReelItem {
+  id: string;
+  userId?: string;
+  user?: ReelUser;
+  timestamp: string;
+  content?: string;
+  files?: ReelFile[];
+  likeCount?: number;
+  commentCount?: number;
+  shareCount?: number;
+  isLiked?: boolean;
+}
+
 interface ReelTileProps {
-  item: any;
+  item: ReelItem;
   onComment: () => void;
   onShare: () => void;
-  onLikeUpdate?: (contentId: string, newLikeCount: number, isLiked: boolean) => void; // ✅ NEW: Like callback
+  onLikeUpdate?: (contentId: string, newLikeCount: number, isLiked: boolean) => void;
 }
 
 const ReelTile: React.FC<ReelTileProps> = ({ item, onComment, onShare, onLikeUpdate }) => {
+  const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const { ref, isInViewport, hasBeenInViewport, shouldPreload } = useInViewport({ threshold: 0.7 });
   const { registerVideo, preloadVideo, playVideo, pauseVideo, toggleMute, isMuted, isPlaying } = useVideoPlayer();
   const { activateMedia, deactivateMedia } = useMediaManager();
 
-  const videoFile = item.files?.find((f: any) => f.type.startsWith('video/'));
-  const thumbnailFile = item.files?.find((f: any) => f.type.startsWith('image/'));
+  const videoFile = item.files?.find((f: ReelFile) => f.type.startsWith('video/'));
+  const thumbnailFile = item.files?.find((f: ReelFile) => f.type.startsWith('image/'));
+
   const [isVideoMuted, setIsVideoMuted] = useState(true);
   const [showPlayButton, setShowPlayButton] = useState(true);
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [videoError, setVideoError] = useState(false);
-  // Default to vertical reel aspect (9:16) so space is reserved before metadata
   const [videoAspectRatio, setVideoAspectRatio] = useState<number>(9 / 16);
   const [containerHeight, setContainerHeight] = useState<number>(400);
 
@@ -179,7 +207,6 @@ const ReelTile: React.FC<ReelTileProps> = ({ item, onComment, onShare, onLikeUpd
     }
   }, []);
 
-  // ✅ UPDATED: Handle like with callback
   const handleLike = useCallback(() => {
     // This will be handled by EngagementButtons with the callback
   }, []);
@@ -199,7 +226,13 @@ const ReelTile: React.FC<ReelTileProps> = ({ item, onComment, onShare, onLikeUpd
             borderColor="border-purple-500"
           />
           <div className="min-w-0 flex-1">
-            <p className="text-white font-semibold text-base truncate">
+            <p
+              className="text-white font-semibold text-base truncate underline cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (item.userId) navigate(`/profile/${item.userId}`);
+              }}
+            >
               {item.user?.userName || 'Anonymous'}
             </p>
             {item.user?.tagline && (
@@ -249,7 +282,6 @@ const ReelTile: React.FC<ReelTileProps> = ({ item, onComment, onShare, onLikeUpd
             {/* Loading State */}
             {!videoLoaded && !videoError && (
               <div className="absolute inset-0 rounded-xl z-10">
-                {/* Skeleton placeholder for reel body */}
                 <div className="w-full h-full bg-gray-800/70 animate-pulse rounded-xl border border-purple-700/20 flex items-center justify-center">
                   <div className="flex flex-col items-center gap-3">
                     <div className="h-10 w-10 rounded-full bg-purple-700/30" />
@@ -331,7 +363,7 @@ const ReelTile: React.FC<ReelTileProps> = ({ item, onComment, onShare, onLikeUpd
         onLike={handleLike}
         onShare={onShare}
         onComment={onComment}
-        onLikeUpdate={onLikeUpdate} // ✅ NEW: Pass like callback
+        onLikeUpdate={onLikeUpdate}
       />
     </div>
   );

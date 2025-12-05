@@ -1,12 +1,5 @@
 import { useEffect } from "react";
 
-// Tell TypeScript that adsbygoogle exists
-declare global {
-  interface Window {
-    adsbygoogle: any[];
-  }
-}
-
 export default function InFeedAd() {
   useEffect(() => {
     try {
@@ -21,7 +14,7 @@ export default function InFeedAd() {
       className="adsbygoogle"
       style={{
         display: "block",
-        margin: "16px 0",       
+        margin: "16px 0",
         width: "100%",
       }}
       data-ad-format="fluid"

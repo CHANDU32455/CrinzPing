@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { HeadProvider } from 'react-head';
-import { AdsProvider } from './context/AdsContext';
+import { AdsProvider } from './context/AdsProvider';
 import { CacheProvider } from './context/CacheContext';
 import AuthManager from './utils/refreshGen';
 import NetworkErrorChip from './components/shared/NetworkErrorPopup';

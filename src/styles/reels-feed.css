@@ -1,12 +1,27 @@
 /* ReelsFeed.css - Professional UI Update */
+
+/* CSS Variables for navbar heights - matching layout.css */
+:root {
+  --header-height: 60px;
+  --bottom-nav-height: 65px;
+  --total-nav-height: calc(var(--header-height) + var(--bottom-nav-height));
+}
+
+/* Mobile override - header is 50px on small screens */
+@media (max-width: 480px) {
+  :root {
+    --header-height: 50px;
+  }
+}
+
 .reels-feed-container {
   background: #000;
-  height: calc(100vh - 65px);
+  height: calc(100vh - var(--total-nav-height));
   overflow-y: auto;
   scroll-snap-type: y mandatory;
   scroll-behavior: smooth;
   position: fixed;
-  top: 0;
+  top: var(--header-height);
   left: 0;
   width: 100%;
   padding: 0;
@@ -29,7 +44,7 @@
 }
 
 .reel-item {
-  height: 100vh;
+  height: calc(100vh - var(--total-nav-height));
   scroll-snap-align: start;
   scroll-snap-stop: always;
   display: flex;
@@ -49,7 +64,7 @@
   width: 100%;
   max-width: 375px;
   /* Fixed max-width for better mobile experience */
-  height: 100vh;
+  height: calc(100vh - var(--total-nav-height));
   background: #000;
   overflow: hidden;
   padding: 0;
@@ -280,8 +295,8 @@
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 16px 20px;
-  /* Extra bottom padding for mobile safe area */
+  padding: 16px 20px 24px 20px;
+  /* Extra bottom padding to stay above bottom navbar */
   background: linear-gradient(to top,
       rgba(0, 0, 0, 0.95) 0%,
       rgba(0, 0, 0, 0.7) 60%,
@@ -382,7 +397,8 @@
 .reel-actions-right {
   position: absolute;
   right: 20px;
-  bottom: 200px;
+  bottom: 120px;
+  /* Moved up to clear bottom navbar */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -453,7 +469,7 @@
   padding: 60px 20px;
   color: white;
   gap: 20px;
-  height: 100vh;
+  height: calc(100vh - var(--total-nav-height));
   scroll-snap-align: start;
 }
 
@@ -472,7 +488,7 @@
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  height: 100vh;
+  height: calc(100vh - var(--total-nav-height));
   scroll-snap-align: start;
 }
 
@@ -512,7 +528,7 @@
 }
 
 .reels-end {
-  height: 100vh;
+  height: calc(100vh - var(--total-nav-height));
   scroll-snap-align: start;
   display: flex;
   align-items: center;
@@ -526,7 +542,7 @@
 
 /* Ad Wrapper */
 .reel-ad-wrapper {
-  height: 100vh;
+  height: calc(100vh - var(--total-nav-height));
   scroll-snap-align: start;
   scroll-snap-stop: always;
   display: flex;
@@ -562,10 +578,10 @@ body.modal-open {
   }
 
 
-
   .reel-actions-right {
     right: 16px;
-    bottom: 180px;
+    bottom: 100px;
+    /* Adjusted for mobile navbar */
     gap: 16px;
   }
 
@@ -592,7 +608,8 @@ body.modal-open {
 @media (max-width: 480px) {
   .reel-actions-right {
     right: 12px;
-    bottom: 160px;
+    bottom: 90px;
+    /* Adjusted for mobile navbar */
     gap: 14px;
   }
 

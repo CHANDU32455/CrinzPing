@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useCrinzLogic, type CrinzResponse } from "../hooks/useCrinzLogic";
 import LoggedInView from "../components/auth/LoggedInView";
 import LoggedOutView from "../components/auth/LoggedOutView";
-import { HomeSeo } from "../components/shared/Seo";
+import { HomeSEO } from "../components/shared/seoContent";
 import { useCache } from "../context/CacheContext";
 import CrinzLoader from "../components/shared/CrinzLoader";
 
@@ -52,10 +52,28 @@ function Home() {
   };
 
   useEffect(() => {
+    const fetchCrinzIfNeeded = async (reason: "empty" | "manual" | "time" | "auto"): Promise<CrinzResponse | null> => {
+      if (reason === "manual") {
+        const data = await getCrinzMessage();
+        if (data) setLocalCrinz(data);
+        return data;
+      }
+
+      const cached = getItem<CrinzResponse>("crinz_cache");
+      if (cached) {
+        setLocalCrinz(cached);
+        return cached;
+      } else {
+        const data = await getCrinzMessage();
+        if (data) setLocalCrinz(data);
+        return data;
+      }
+    };
+
     if (!auth.isAuthenticated || fetchedOnce.current) return;
     fetchedOnce.current = true;
     fetchCrinzIfNeeded("empty");
-  }, [auth.isAuthenticated]);
+  }, [auth.isAuthenticated, getCrinzMessage, getItem]);
 
   useEffect(() => {
     if (crinzData) {
@@ -81,11 +99,9 @@ function Home() {
 
   return (
     <div className="app-container home-container">
-      <HomeSeo />
+      <HomeSEO />
       {auth.isLoading ? (
         <CrinzLoader text="Authenticating..." />
-      ) : auth.error ? (
-        <div>Error: {typeof auth.error === "string" ? auth.error : auth.error?.message}</div>
       ) : auth.isAuthenticated ? (
         <LoggedInView
           crinzData={localCrinz}

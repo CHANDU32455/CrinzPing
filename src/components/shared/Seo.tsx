@@ -1,134 +1,99 @@
-// src/components/Seo.tsx
-import { Title, Meta } from "react-head";
-import type { ReactNode } from "react";
+import { useEffect } from 'react';
 
-// global constants
-export const BASE_URL = import.meta.env.VITE_COGNITO_LOGOUT_URI; // thats the base url..
-export const OG_IMAGE = `${BASE_URL}/CrinzPing.png`;
-
-type SeoBlock = () => ReactNode;
-
-// --- STATIC SEO COMPONENTS ---
-export const HomeSeo: SeoBlock = () => (
-  <>
-    <Title>Crinzping - Fun Daily Roasts</Title>
-    <Meta
-      name="description"
-      content="Crinzping is a fun entertainment app that delivers hilarious roast-style messages every day. Share jokes, laugh with friends, and enjoy witty fun."
-    />
-    <Meta
-      name="keywords"
-      content="roast, funny app, daily jokes, crinzping, entertainment, witty messages, share roasts"
-    />
-    <Meta property="og:title" content="Crinzping - Fun Daily Roasts" />
-    <Meta property="og:description" content="Crinzping delivers hilarious roast-style messages daily. Fun, quirky, and shareable!" />
-    <Meta property="og:type" content="website" />
-    <Meta property="og:url" content={BASE_URL + "/"} />
-    <Meta property="og:image" content={OG_IMAGE} />
-    <Meta name="twitter:card" content="summary_large_image" />
-    <Meta name="twitter:title" content="Crinzping - Fun Daily Roasts" />
-    <Meta name="twitter:description" content="Crinzping delivers hilarious roast-style messages daily. Fun, quirky, and shareable!" />
-    <Meta name="twitter:image" content={OG_IMAGE} />
-  </>
-);
-
-export const AboutSeo: SeoBlock = () => (
-  <>
-    <Title>About Crinzping</Title>
-    <Meta
-      name="description"
-      content="Discover Crinzping, the funny entertainment app built to brighten your day with roast messages, witty content, and shareable jokes."
-    />
-    <Meta property="og:title" content="About Crinzping" />
-    <Meta property="og:description" content="Discover Crinzping, the funny app with roast messages and shareable jokes." />
-    <Meta property="og:type" content="website" />
-    <Meta property="og:url" content={BASE_URL + "/about"} />
-    <Meta property="og:image" content={OG_IMAGE} />
-    <Meta name="twitter:card" content="summary_large_image" />
-    <Meta name="twitter:title" content="About Crinzping" />
-    <Meta name="twitter:description" content="Discover Crinzping, the funny app with roast messages and shareable jokes." />
-    <Meta name="twitter:image" content={OG_IMAGE} />
-  </>
-);
-
-export const FeedSeo: SeoBlock = () => (
-  <>
-    <Title>Your Crinz Feed</Title>
-    <Meta
-      name="description"
-      content="Browse your personalized Crinzping feed full of funny roast-style messages, entertaining content, and laugh-worthy posts every day."
-    />
-    <Meta property="og:title" content="Your Crinz Feed" />
-    <Meta property="og:description" content="Browse your personalized Crinzping feed full of hilarious roasts and entertaining content." />
-    <Meta property="og:type" content="website" />
-    <Meta property="og:url" content={BASE_URL + "/feed"} />
-    <Meta property="og:image" content={OG_IMAGE} />
-    <Meta name="twitter:card" content="summary_large_image" />
-    <Meta name="twitter:title" content="Your Crinz Feed" />
-    <Meta name="twitter:description" content="Browse your personalized Crinzping feed full of hilarious roasts and entertaining content." />
-    <Meta name="twitter:image" content={OG_IMAGE} />
-  </>
-);
-
-export const ExtrasSeo: SeoBlock = () => (
-  <>
-    <Title>Extras - Crinzping</Title>
-    <Meta
-      name="description"
-      content="Explore extra roast content, bonus jokes, and hidden fun inside Crinzping. More laughs, more entertainment, just for you."
-    />
-    <Meta property="og:title" content="Extras - Crinzping" />
-    <Meta property="og:description" content="Explore extra roast content, bonus jokes, and hidden fun inside Crinzping." />
-    <Meta property="og:type" content="website" />
-    <Meta property="og:url" content={BASE_URL + "/extras"} />
-    <Meta property="og:image" content={OG_IMAGE} />
-    <Meta name="twitter:card" content="summary_large_image" />
-    <Meta name="twitter:title" content="Extras - Crinzping" />
-    <Meta name="twitter:description" content="Explore extra roast content, bonus jokes, and hidden fun inside Crinzping." />
-    <Meta name="twitter:image" content={OG_IMAGE} />
-  </>
-);
-
-export const ContributeSeo: SeoBlock = () => (
-  <>
-    <Title>Contribute a Crinz</Title>
-    <Meta
-      name="description"
-      content="Contribute your own roast messages and become part of the Crinzping community. Share your wit and entertain users worldwide."
-    />
-    <Meta property="og:title" content="Contribute a Crinz" />
-    <Meta property="og:description" content="Share your roast messages and become part of the Crinzping community." />
-    <Meta property="og:type" content="website" />
-    <Meta property="og:url" content={BASE_URL + "/contribute"} />
-    <Meta property="og:image" content={OG_IMAGE} />
-    <Meta name="twitter:card" content="summary_large_image" />
-    <Meta name="twitter:title" content="Contribute a Crinz" />
-    <Meta name="twitter:description" content="Share your roast messages and become part of the Crinzping community." />
-    <Meta name="twitter:image" content={OG_IMAGE} />
-  </>
-);
-
-// --- DYNAMIC SEO COMPONENT ---
-interface DynamicSeoProps {
-  title: string;
-  description: string;
-  slug?: string; // optional path, default to "/"
+interface SEOProps {
+  title?: string;
+  description?: string;
+  keywords?: string;
+  image?: string;
+  url?: string;
+  type?: 'website' | 'article' | 'profile' | 'video.other';
+  author?: string;
+  publishedTime?: string;
+  noIndex?: boolean;
 }
 
-export const DynamicSeo: React.FC<DynamicSeoProps> = ({ title, description, slug = "/" }) => (
-  <>
-    <Title>{title}</Title>
-    <Meta name="description" content={description} />
-    <Meta property="og:title" content={title} />
-    <Meta property="og:description" content={description} />
-    <Meta property="og:type" content="website" />
-    <Meta property="og:url" content={BASE_URL + slug} />
-    <Meta property="og:image" content={OG_IMAGE} />
-    <Meta name="twitter:card" content="summary_large_image" />
-    <Meta name="twitter:title" content={title} />
-    <Meta name="twitter:description" content={description} />
-    <Meta name="twitter:image" content={OG_IMAGE} />
-  </>
-);
+const DEFAULT_TITLE = 'CrinzPing - Share Your Cringiest Moments';
+const DEFAULT_DESCRIPTION = 'CrinzPing is a fun social media platform where you can share cringe messages, memes, posts, and short reels with friends.';
+const DEFAULT_IMAGE = 'https://crinzping.com/og-image.png';
+const SITE_URL = 'https://crinzping.com';
 
-export default DynamicSeo;
+/**
+ * SEO Component - Updates document meta tags dynamically
+ * Use this component on each page to set page-specific SEO
+ * 
+ * @example
+ * <SEO 
+ *   title="Reels | CrinzPing"
+ *   description="Watch the latest short video reels on CrinzPing"
+ * />
+ */
+export const SEO: React.FC<SEOProps> = ({
+  title = DEFAULT_TITLE,
+  description = DEFAULT_DESCRIPTION,
+  keywords,
+  image = DEFAULT_IMAGE,
+  url = SITE_URL,
+  type = 'website',
+  author,
+  publishedTime,
+  noIndex = false,
+}) => {
+  useEffect(() => {
+    // Update document title
+    document.title = title;
+
+    // Helper to update or create meta tag
+    const updateMeta = (name: string, content: string, isProperty = false) => {
+      const attr = isProperty ? 'property' : 'name';
+      let meta = document.querySelector(`meta[${attr}="${name}"]`);
+
+      if (!meta) {
+        meta = document.createElement('meta');
+        meta.setAttribute(attr, name);
+        document.head.appendChild(meta);
+      }
+
+      meta.setAttribute('content', content);
+    };
+
+    // Basic meta tags
+    updateMeta('description', description);
+    if (keywords) updateMeta('keywords', keywords);
+    updateMeta('robots', noIndex ? 'noindex, nofollow' : 'index, follow');
+
+    // Open Graph tags
+    updateMeta('og:title', title, true);
+    updateMeta('og:description', description, true);
+    updateMeta('og:image', image, true);
+    updateMeta('og:url', url, true);
+    updateMeta('og:type', type, true);
+    if (author) updateMeta('article:author', author, true);
+    if (publishedTime) updateMeta('article:published_time', publishedTime, true);
+
+    // Twitter tags
+    updateMeta('twitter:title', title, true);
+    updateMeta('twitter:description', description, true);
+    updateMeta('twitter:image', image, true);
+    updateMeta('twitter:url', url, true);
+
+    // Update canonical link
+    let canonical = document.querySelector('link[rel="canonical"]') as HTMLLinkElement;
+    if (!canonical) {
+      canonical = document.createElement('link');
+      canonical.rel = 'canonical';
+      document.head.appendChild(canonical);
+    }
+    canonical.href = url;
+
+    // Cleanup function to reset to defaults on unmount
+    return () => {
+      document.title = DEFAULT_TITLE;
+    };
+  }, [title, description, keywords, image, url, type, author, publishedTime, noIndex]);
+
+  return null; // This component doesn't render anything
+};
+
+
+
+export default SEO;

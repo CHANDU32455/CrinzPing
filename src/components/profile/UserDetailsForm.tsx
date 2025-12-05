@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { jwtDecode } from "jwt-decode";
 import { useLocation, useNavigate } from "react-router-dom";
 import { processAvatarFile } from "../../utils/imageProcessor";
@@ -6,8 +6,19 @@ import Select from "react-select";
 import { useAuth } from "react-oidc-context";
 import "../../styles/user-details-form.css";
 import { useUserDetails, type UserDetails as UserDetailsType } from "../../hooks/UserInfo";
+import { API_ENDPOINTS } from "../../constants/apiEndpoints";
 
-const updateUserDetailsPoint = `${import.meta.env.VITE_BASE_API_URL}/postUserData`;
+interface JwtPayload {
+    email?: string;
+    "cognito:username"?: string;
+    sub?: string;
+}
+
+interface RouteState {
+    userDetails?: UserDetailsType;
+}
+
+const updateUserDetailsPoint = `${import.meta.env.VITE_BASE_API_URL}${API_ENDPOINTS.POST_USER_DATA}`;
 
 const UserDetailsForm = () => {
     const location = useLocation();
@@ -15,11 +26,11 @@ const UserDetailsForm = () => {
     const { user } = useAuth();
     const { updateUserDetails, userDetails: cachedUserDetails } = useUserDetails(user?.profile.sub);
 
-    const routeState = location.state as { userDetails?: any } | null;
+    const routeState = location.state as RouteState | null;
     const userDetails = routeState?.userDetails || cachedUserDetails;
 
     const [displayName, setDisplayName] = useState(userDetails?.displayName || "");
-    const [Tagline, setTagline] = useState(userDetails?.Tagline || "");
+    const [tagline, setTagline] = useState(userDetails?.Tagline || "");
     const [timeZone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone);
     const [categories, setCategories] = useState<string[]>(userDetails?.categories || []);
     const [baselineDetails, setBaselineDetails] = useState({
@@ -37,18 +48,13 @@ const UserDetailsForm = () => {
     const [profilePic, setProfilePic] = useState<string>(userDetails?.profilePic || "");
     const [avatarPreview, setAvatarPreview] = useState<string>(userDetails?.profilePic || "");
 
-    const token = user?.access_token;
-    if (!token) {
-        console.warn("Missing access token for getUserDetails");
-        return <div>Access token missing</div>;
-    }
-
-    const getUserDetailsFromToken = () => {
+    // Move all hooks to the top before any conditional logic
+    const getUserDetailsFromToken = useCallback((): { email: string | null; userId: string | null } => {
         const token = localStorage.getItem("id_token");
         if (!token) return { email: null, userId: null };
 
         try {
-            const decoded: any = jwtDecode(token);
+            const decoded: JwtPayload = jwtDecode(token);
             return {
                 email: decoded.email || null,
                 userId: decoded["cognito:username"] ?? (decoded.sub || null),
@@ -57,7 +63,7 @@ const UserDetailsForm = () => {
             console.error("Token decoding failed:", err);
             return { email: null, userId: null };
         }
-    };
+    }, []);
 
     const { email, userId } = getUserDetailsFromToken();
 
@@ -66,11 +72,17 @@ const UserDetailsForm = () => {
     const hasChanges = useMemo(() => {
         return (
             displayName.trim() !== baselineDetails.displayName.trim() ||
-            Tagline.trim() !== baselineDetails.Tagline.trim() ||
+            tagline.trim() !== baselineDetails.Tagline.trim() ||
             JSON.stringify([...categories].sort()) !== JSON.stringify([...baselineDetails.categories].sort()) ||
             profilePic !== baselineDetails.profilePic
         );
-    }, [displayName, Tagline, categories, profilePic, baselineDetails]);
+    }, [displayName, tagline, categories, profilePic, baselineDetails]);
+
+    const token = user?.access_token;
+    if (!token) {
+        console.warn("Missing access token for getUserDetails");
+        return <div>Access token missing</div>;
+    }
 
     const handleAddCategory = () => {
         if (useDropdown && selectedCategory) {
@@ -91,7 +103,6 @@ const UserDetailsForm = () => {
         setCategories(categories.filter((c) => c !== cat));
     };
 
-    // In your handleSubmit function
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!isFormValid || !hasChanges) return;
@@ -111,7 +122,7 @@ const UserDetailsForm = () => {
             userId,
             email,
             displayName,
-            Tagline: Tagline.trim(),
+            Tagline: tagline.trim(),
             timeZone,
             preferences: { categories },
             profilePic,
@@ -144,7 +155,7 @@ const UserDetailsForm = () => {
             // update baseline so "Save" button disables
             setBaselineDetails({
                 displayName,
-                Tagline: Tagline.trim(),
+                Tagline: tagline.trim(),
                 categories: [...categories],
                 profilePic
             });
@@ -232,7 +243,7 @@ const UserDetailsForm = () => {
 
                 <label className="user-details-form__label">Tagline:</label>
                 <textarea
-                    value={Tagline}
+                    value={tagline}
                     onChange={(e) => setTagline(e.target.value)}
                     className="user-details-form__textarea"
                     placeholder="Tell us something about yourself..."
@@ -240,7 +251,7 @@ const UserDetailsForm = () => {
                     maxLength={150}
                 />
                 <div className="user-details-form__char-count">
-                    {Tagline.length}/150 characters
+                    {tagline.length}/150 characters
                 </div>
 
                 <label className="user-details-form__label">Preferred Categories</label>

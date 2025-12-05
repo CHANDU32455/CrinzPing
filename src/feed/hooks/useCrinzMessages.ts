@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { API_ENDPOINTS } from "../../constants/apiEndpoints";
 
 export interface CrinzPost {
   crinzId: string;
@@ -14,12 +15,45 @@ export interface CrinzPost {
   isLiked?: boolean;
 }
 
-const GET_CRINZ_MESSAGES_API = `${import.meta.env.VITE_BASE_API_URL}/getCrinzMessages`;
+// Define proper types for API response and pagination
+interface ApiCrinzItem {
+  crinzId: string;
+  message: string;
+  timestamp: string;
+  userId: string;
+  userName: string;
+  userProfilePic?: string;
+  userTagline?: string;
+  likeCount: number;
+  commentCount: number;
+  tags?: string[];
+  likedByUser?: boolean;
+}
+
+interface ApiResponse {
+  items: ApiCrinzItem[];
+  lastKey?: Record<string, unknown> | null;
+}
+
+interface CacheData {
+  posts: CrinzPost[];
+  lastKey: Record<string, unknown> | null;
+  timestamp: number;
+}
+
+interface FetchPayload {
+  limit: number;
+  userId: string;
+  lastKey?: Record<string, unknown>;
+  postId?: string;
+}
+
+const GET_CRINZ_MESSAGES_API = `${import.meta.env.VITE_BASE_API_URL}${API_ENDPOINTS.GET_CRINZ_MESSAGES}`;
 const CACHE_KEY = "crinz_messages_cache";
 
 export const useCrinzMessages = () => {
   const [crinzPosts, setCrinzPosts] = useState<CrinzPost[]>([]);
-  const [lastKey, setLastKey] = useState<any>(null);
+  const [lastKey, setLastKey] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const hasMore = useMemo(() => !!lastKey, [lastKey]);
@@ -28,13 +62,14 @@ export const useCrinzMessages = () => {
   const initialLoadRef = useRef(false);
 
   // Save to cache whenever posts change
-  const saveToCache = useCallback((posts: CrinzPost[], lastKey: any) => {
+  const saveToCache = useCallback((posts: CrinzPost[], lastKey: Record<string, unknown> | null) => {
     try {
-      localStorage.setItem(CACHE_KEY, JSON.stringify({
+      const cacheData: CacheData = {
         posts,
         lastKey,
         timestamp: Date.now()
-      }));
+      };
+      localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
     } catch (e) {
       console.warn("Failed to save posts to cache", e);
     }
@@ -45,7 +80,7 @@ export const useCrinzMessages = () => {
     try {
       const cacheStr = localStorage.getItem(CACHE_KEY);
       if (cacheStr) {
-        const cache = JSON.parse(cacheStr);
+        const cache: CacheData = JSON.parse(cacheStr);
         if (cache.posts && Array.isArray(cache.posts)) {
           setCrinzPosts(cache.posts);
           setLastKey(cache.lastKey || null);
@@ -63,7 +98,7 @@ export const useCrinzMessages = () => {
     async (isInitial = false, postId?: string, backgroundRefresh = false) => {
       if (inFlightRef.current) return;
       inFlightRef.current = true;
-      
+
       if ((loading && !backgroundRefresh) || (!hasMore && !isInitial && !postId)) {
         inFlightRef.current = false;
         return;
@@ -82,7 +117,7 @@ export const useCrinzMessages = () => {
         const payload = JSON.parse(atob(token.split(".")[1]));
         const userId = payload["cognito:username"];
 
-        const bodyPayload: any = { limit: 15, userId };
+        const bodyPayload: FetchPayload = { limit: 15, userId };
         if (!isInitial && lastKey && !backgroundRefresh) bodyPayload.lastKey = lastKey;
         if (postId) bodyPayload.postId = postId;
 
@@ -106,11 +141,11 @@ export const useCrinzMessages = () => {
           throw new Error(errorMsg);
         }
 
-        const data = await res.json();
+        const data: ApiResponse = await res.json();
         console.log("fetched crinzMessages:", data);
-        
+
         // Map the response items to include all the new user profile fields
-        const mappedItems = (data.items || []).map((item: any) => ({
+        const mappedItems: CrinzPost[] = (data.items || []).map((item: ApiCrinzItem) => ({
           crinzId: item.crinzId,
           message: item.message,
           timestamp: item.timestamp,
@@ -125,7 +160,7 @@ export const useCrinzMessages = () => {
         }));
 
         if (postId && !backgroundRefresh) {
-          const found = mappedItems.some((p: any) => p.crinzId === postId);
+          const found = mappedItems.some((p: CrinzPost) => p.crinzId === postId);
           if (!found) {
             setCrinzNotFoundInResponse(postId);
           }
@@ -150,9 +185,10 @@ export const useCrinzMessages = () => {
           saveToCache(uniquePosts, validLastKey);
         }
 
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Error fetching messages:", err);
-        setError(err.message || "Error fetching messages");
+        const errorMessage = err instanceof Error ? err.message : "Error fetching messages";
+        setError(errorMessage);
         throw err;
       } finally {
         if (!backgroundRefresh) setLoading(false);
@@ -169,7 +205,7 @@ export const useCrinzMessages = () => {
 
     const loadData = async () => {
       const hasCache = loadFromCache();
-      
+
       // Always try to fetch fresh data, but don't wait for it if we have cache
       if (hasCache) {
         // Fetch fresh data in background but don't block UI

@@ -3,6 +3,17 @@ import { batchSyncer, type BatchAction, useBatchSync } from './msgsBatchSyncer';
 // Extended types for all content types
 export type ContentType = 'crinz_message' | 'post' | 'reel';
 
+interface ServerStats {
+  likeCount?: number;
+  likes?: number;
+  commentCount?: number;
+  comments?: number;
+  shareCount?: number;
+  viewCount?: number;
+  isLikedByUser?: boolean;
+  isBookmarked?: boolean;
+}
+
 export interface ContentAction extends Omit<BatchAction, 'crinzId'> {
   contentId: string;
   contentType: ContentType;
@@ -43,13 +54,6 @@ class ContentManager {
       userId,
       timestamp: new Date().toISOString(),
     };
-
-    console.log('📤 ContentManager - Like Action:', {
-      contentId,
-      contentType,
-      userId,
-      currentlyLiked
-    });
 
     // Optimistic update
     this.updateContentStats(contentId, {
@@ -92,14 +96,6 @@ class ContentManager {
       },
     };
 
-    console.log('📤 ContentManager - Add Comment:', {
-      contentId,
-      contentType,  // Check what this shows in logs
-      userId,
-      commentLength: comment.length,
-      tempCommentId
-    });
-
     // Optimistic update
     this.updateContentStats(contentId, {
       commentCount: 1,
@@ -117,12 +113,6 @@ class ContentManager {
         isCrinzMessage: contentType === 'crinz_message'
       },
     };
-
-    console.log('📤 ContentManager - Legacy Comment Action:', {
-      crinzId: contentId,
-      contentType: contentType,  // Add this log to verify
-      payload: legacyAction.payload
-    });
 
     batchSyncer.addAction(legacyAction);
   }
@@ -244,7 +234,7 @@ class ContentManager {
     return this.contentStatsCache.get(contentId);
   }
 
-  initializeContentStats(contentId: string, serverStats: any): void {
+  initializeContentStats(contentId: string, serverStats: ServerStats): void {
     const currentStats = this.contentStatsCache.get(contentId) || {
       likeCount: 0,
       commentCount: 0,

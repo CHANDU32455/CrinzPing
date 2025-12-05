@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { useImageCache } from "../hooks/useImageCache";
 
 interface UserAvatarProps {
   userName: string;
@@ -15,14 +14,13 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
   className = ""
 }) => {
   const [imageError, setImageError] = useState(false);
-  const { cachedSrc, error } = useImageCache(profilePic);
 
   // Reset error when profilePic changes
   useEffect(() => {
     setImageError(false);
   }, [profilePic]);
 
-  // Generate random background color
+  // Generate random background color based on username
   const colors = ["#FF6B6B", "#4A90E2", "#2ECC71", "#F1C40F", "#9B59B6", "#E91E63"];
   const randomColor = colors[userName.length % colors.length];
 
@@ -33,14 +31,11 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
     .slice(0, 2)
     .join("");
 
-  // If we have a valid profile picture and no error, show the image
-  // We check for cachedSrc (which handles loading) or fallback to profilePic if caching isn't used/ready but we want to try rendering anyway
-  // However, useImageCache handles the fetching, so we should rely on cachedSrc.
-  // If error occurs in hook or image load, we fall back to initials.
-  if (profilePic && !imageError && !error && cachedSrc) {
+  // Show image if we have a valid profile picture and no error
+  if (profilePic && !imageError) {
     return (
       <img
-        src={cachedSrc}
+        src={profilePic}
         alt={`${userName}'s avatar`}
         className={className}
         style={{
@@ -50,11 +45,12 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
           objectFit: "cover"
         }}
         onError={() => setImageError(true)}
+        loading="lazy"
       />
     );
   }
 
-  // Otherwise show colored circle with initials
+  // Fallback: colored circle with initials
   return (
     <div
       className={className}

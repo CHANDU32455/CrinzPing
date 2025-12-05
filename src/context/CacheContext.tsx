@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useCallback, type ReactNode } from 'react';
 
 interface CacheItem<T> {

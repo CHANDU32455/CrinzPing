@@ -73,6 +73,7 @@
   padding-bottom: 0.8rem;
   border-bottom: 1px solid rgba(0, 255, 204, 0.1);
 }
+
 /* Center and style the user avatar container */
 .user-avatar {
   display: flex;
@@ -82,17 +83,22 @@
   height: 40px;
   border-radius: 50%;
   overflow: hidden;
-  border: 2px solid rgba(0, 255, 204, 0.3); /* Cyan border from your style */
-  background: rgba(0, 0, 0, 0.3); /* Semi-transparent black background */
-  flex-shrink: 0; /* Prevent shrinking in flex layouts */
+  border: 2px solid rgba(0, 255, 204, 0.3);
+  /* Cyan border from your style */
+  background: rgba(0, 0, 0, 0.3);
+  /* Semi-transparent black background */
+  flex-shrink: 0;
+  /* Prevent shrinking in flex layouts */
 }
 
 /* Style the canvas-based avatar */
 .avatar-image {
   width: 100%;
   height: 100%;
-  border-radius: 50%; /* Ensure circular shape */
-  transition: transform 0.2s ease; /* Smooth hover effect */
+  border-radius: 50%;
+  /* Ensure circular shape */
+  transition: transform 0.2s ease;
+  /* Smooth hover effect */
 }
 
 .user-info {
@@ -106,6 +112,8 @@
   font-size: 1rem;
   color: #00ffcc;
   text-shadow: 0 0 5px rgba(0, 255, 204, 0.5);
+  cursor: pointer;
+  text-decoration: underline;
 }
 
 .timestamp {
@@ -219,8 +227,13 @@
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .loading-indicator p {
@@ -305,28 +318,28 @@
     padding: 0 0.5rem;
     gap: 1rem;
   }
-  
+
   .feed-post {
     min-height: 65vh;
     padding: 1rem;
     margin-bottom: 0.5rem;
   }
-  
+
   .post-content p {
     font-size: 1rem;
     line-height: 1.5;
   }
-  
+
   .post-actions {
     gap: 0.6rem;
   }
-  
+
   .post-actions button {
     font-size: 0.9rem;
     min-width: 70px;
     padding: 0.5rem 0.8rem;
   }
-  
+
   .user-avatar {
     width: 35px;
     height: 35px;
@@ -338,29 +351,29 @@
     min-height: 60vh;
     padding: 0.8rem;
   }
-  
+
   .post-content p {
     font-size: 0.95rem;
   }
-  
+
   .post-actions {
     gap: 0.4rem;
   }
-  
+
   .post-actions button {
     font-size: 0.85rem;
     min-width: 65px;
     padding: 0.4rem 0.6rem;
   }
-  
+
   .username {
     font-size: 0.9rem;
   }
-  
+
   .timestamp {
     font-size: 0.75rem;
   }
-  
+
   .loading-indicator,
   .end-of-feed,
   .no-posts {
@@ -378,6 +391,7 @@
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -392,9 +406,17 @@
 }
 
 @keyframes pulse {
-  0% { box-shadow: 0 0 15px rgba(76, 175, 239, 0.4); }
-  50% { box-shadow: 0 0 25px rgba(76, 175, 239, 0.6); }
-  100% { box-shadow: 0 0 15px rgba(76, 175, 239, 0.4); }
+  0% {
+    box-shadow: 0 0 15px rgba(76, 175, 239, 0.4);
+  }
+
+  50% {
+    box-shadow: 0 0 25px rgba(76, 175, 239, 0.6);
+  }
+
+  100% {
+    box-shadow: 0 0 15px rgba(76, 175, 239, 0.4);
+  }
 }
 
 /* Focus states for accessibility */
@@ -496,6 +518,7 @@
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -507,6 +530,7 @@
     opacity: 1;
     transform: translateY(0);
   }
+
   to {
     opacity: 0;
     transform: translateY(20px);
@@ -557,15 +581,16 @@
     left: 10px;
     max-width: none;
   }
-  
+
   .notification {
     padding: 10px 14px;
   }
-  
+
   .notification-message {
     font-size: 0.85rem;
   }
 }
+
 /* Network Error Chip */
 .network-error-chip {
   position: fixed;
@@ -627,6 +652,7 @@
     opacity: 0;
     transform: translate(-50%, -20px);
   }
+
   to {
     opacity: 1;
     transform: translate(-50%, 0);
@@ -638,6 +664,7 @@
     opacity: 1;
     transform: translate(-50%, 0);
   }
+
   to {
     opacity: 0;
     transform: translate(-50%, -20px);
@@ -651,11 +678,11 @@
     padding: 8px 14px;
     max-width: 95%;
   }
-  
+
   .network-error-message {
     font-size: 0.8rem;
   }
-  
+
   .network-error-icon {
     font-size: 1rem;
   }

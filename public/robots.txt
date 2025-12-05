@@ -1,0 +1,29 @@
+# CrinzPing Robots.txt
+# https://crinzping.com/robots.txt
+
+User-agent: *
+Allow: /
+
+# Allow search engines to index main pages
+Allow: /
+Allow: /feed
+Allow: /reels
+Allow: /explore
+Allow: /privacy
+Allow: /terms
+Allow: /about
+
+# Disallow private/auth routes
+Disallow: /callback
+Disallow: /postUserDetails
+Disallow: /settings
+Disallow: /logout
+
+# Disallow API routes (if any are exposed)
+Disallow: /api/
+
+# Sitemap location
+Sitemap: https://crinzping.com/sitemap.xml
+
+# Crawl delay (be gentle on the server)
+Crawl-delay: 1

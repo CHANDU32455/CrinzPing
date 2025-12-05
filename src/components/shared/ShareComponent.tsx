@@ -184,8 +184,8 @@ const ShareComponent: React.FC<ShareComponentProps> = ({
               url: shareUrl,
             });
             handleCloseModal();
-          } catch (err: any) {
-            if (err.name !== 'AbortError') {
+          } catch (err: unknown) {
+            if (err instanceof Error && err.name !== 'AbortError') {
               console.error("Share failed:", err);
               handleCopy(); // Fallback to copy
             }

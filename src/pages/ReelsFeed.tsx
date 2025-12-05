@@ -5,6 +5,8 @@ import ShareComponent from "../components/shared/ShareComponent";
 import CommentModal from "../components/feed/CommentModal";
 import { contentManager } from "../utils/Posts_Reels_Stats_Syncer";
 import { useAuth } from "react-oidc-context";
+import { ReelsSEO } from "../components/shared/seoContent";
+import getRoast from "../utils/roastMessages";
 import "../styles/reels-feed.css"
 
 interface LocalReel extends Reel {
@@ -99,7 +101,7 @@ function ReelsFeed() {
 
       console.log(`✅ Video ${index} playing with audio`);
 
-    } catch (error) {
+    } catch {
       console.log(`🔇 Video ${index} autoplay prevented, trying muted`);
 
       // If autoplay fails, try muted
@@ -108,7 +110,7 @@ function ReelsFeed() {
         await video.play();
         mutedStatesRef.current[index] = true;
         console.log(`✅ Video ${index} playing muted`);
-      } catch (mutedError) {
+      } catch {
         console.log(`❌ Video ${index} failed to play even muted`);
         // Video completely failed, show play button overlay
       }
@@ -215,7 +217,7 @@ function ReelsFeed() {
           await video.play();
           mutedStatesRef.current[index] = false;
           console.log(`🔊 Video ${index} unmuted by user click`);
-        } catch (error) {
+        } catch {
           // If unmuting fails, keep it muted but play
           video.muted = true;
           await video.play();
@@ -397,8 +399,9 @@ function ReelsFeed() {
     return (
       <div className="reels-error">
         <div className="reels-error-content">
-          <p>Failed to load reels</p>
-          <button onClick={retry}>Try Again</button>
+          <div className="text-4xl mb-3">💀</div>
+          <p>{getRoast.error('network')}</p>
+          <button onClick={retry}>Try Again (we believe in you... kinda)</button>
         </div>
       </div>
     );
@@ -406,6 +409,7 @@ function ReelsFeed() {
 
   return (
     <>
+      <ReelsSEO />
       <div ref={containerRef} className="reels-feed-container">
         <div className="reels-list">
           {localReels.map((reel, index) => (

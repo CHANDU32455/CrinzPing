@@ -1,9 +1,23 @@
 import { useState, useEffect, useCallback } from 'react';
 
+interface CommentPayload {
+    comment: string;
+    commentId?: string;
+    contentType?: string;
+    isCrinzMessage?: boolean;
+    text?: string; // Add text for backward compatibility
+}
+
+interface LikePayload {
+    contentType?: string;
+    isCrinzMessage?: boolean;
+    commentId?: string;
+}
+
 export interface BatchAction {
     type: 'like' | 'unlike' | 'add_comment' | 'remove_comment';
     crinzId: string;
-    payload?: any;
+    payload?: CommentPayload | LikePayload;
     timestamp: string;
     userId: string;
 }
@@ -17,7 +31,17 @@ interface SyncState {
     error: string | null;
 }
 
-const BATCH_PROCESS_API_URL = `${import.meta.env.VITE_BASE_API_URL}/batchProcesser`;
+interface ProcessedAction {
+    status: string;
+    crinzId: string;
+    type: string;
+    commentId?: string;
+    payload?: string;
+}
+
+import { API_ENDPOINTS } from '../constants/apiEndpoints';
+
+const BATCH_PROCESS_API_URL = `${import.meta.env.VITE_BASE_API_URL}${API_ENDPOINTS.BATCH_PROCESSER}`;
 const SYNC_DEBOUNCE_DELAY = 5000;
 const SYNC_RETRY_DELAY = 30000;
 const MAX_RETRIES = 3;
@@ -41,7 +65,7 @@ class MsgsBatchSyncer {
     subscribe(callback: (state: SyncState) => void) {
         this.syncStateCallbacks.push(callback);
         callback(this.getSyncState());
-        
+
         return () => {
             this.syncStateCallbacks = this.syncStateCallbacks.filter(cb => cb !== callback);
         };
@@ -53,9 +77,8 @@ class MsgsBatchSyncer {
     }
 
     private getSyncState(): SyncState {
-        const syncTimeoutStart = (this.syncTimeout as any)?._idleStart;
-        const countdown = this.syncTimeout ? Math.ceil((SYNC_DEBOUNCE_DELAY - (Date.now() - syncTimeoutStart)) / 1000) : 0;
-        
+        const countdown = this.syncTimeout ? Math.ceil(SYNC_DEBOUNCE_DELAY / 1000) : 0;
+
         return {
             isSyncing: this.syncTimeout !== null,
             pendingActions: [...this.pendingActions],
@@ -87,24 +110,26 @@ class MsgsBatchSyncer {
         let processedAction: BatchAction;
 
         if (action.type === 'add_comment') {
+            const payload = action.payload as CommentPayload;
             processedAction = {
                 ...action,
                 timestamp: new Date().toISOString(),
                 payload: {
-                    comment: action.payload?.text || action.payload?.comment || '',
-                    commentId: action.payload?.commentId,
-                    contentType: action.payload?.contentType,
-                    isCrinzMessage: action.payload?.isCrinzMessage
+                    comment: payload?.text || payload?.comment || '',
+                    commentId: payload?.commentId,
+                    contentType: payload?.contentType,
+                    isCrinzMessage: payload?.isCrinzMessage
                 }
             };
         } else {
-            processedAction = { 
-                ...action, 
+            const payload = action.payload as LikePayload;
+            processedAction = {
+                ...action,
                 timestamp: new Date().toISOString(),
-                payload: action.payload ? {
-                    contentType: action.payload.contentType,
-                    isCrinzMessage: action.payload.isCrinzMessage,
-                    commentId: action.payload.commentId // Keep commentId for remove_comment
+                payload: payload ? {
+                    contentType: payload.contentType,
+                    isCrinzMessage: payload.isCrinzMessage,
+                    commentId: payload.commentId
                 } : undefined
             };
         }
@@ -132,9 +157,12 @@ class MsgsBatchSyncer {
                     return false;
                 }
 
+                const existingPayload = existingAction.payload as CommentPayload;
+                const newPayload = newAction.payload as CommentPayload;
+
                 if (existingAction.type === 'add_comment' &&
                     newAction.type === 'remove_comment' &&
-                    existingAction.payload?.commentId === newAction.payload?.commentId) {
+                    existingPayload?.commentId === newPayload?.commentId) {
                     return false;
                 }
 
@@ -180,7 +208,7 @@ class MsgsBatchSyncer {
 
             const actionsToSync = [...this.pendingActions];
             const userId = JSON.parse(atob(localStorage.getItem('id_token')!.split('.')[1]))["cognito:username"];
-            
+
             const payload = {
                 actions: actionsToSync,
                 userId: userId
@@ -200,66 +228,50 @@ class MsgsBatchSyncer {
             }
 
             const result = await response.json();
-        
-            if (result.success) {
-                const processedActions = result.processed || [];
 
-                let removedCount = 0;
-                processedActions.forEach((processed: any) => {
-                    
+            if (result.success) {
+                const processedActions: ProcessedAction[] = result.processed || [];
+
+                processedActions.forEach((processed: ProcessedAction) => {
                     if (['liked', 'unliked', 'comment_added', 'comment_removed'].includes(processed.status)) {
-                        const beforeCount = this.pendingActions.length;
                         this.pendingActions = this.pendingActions.filter(action =>
                             !(action.crinzId === processed.crinzId && action.type === processed.type)
                         );
-                        const afterCount = this.pendingActions.length;
-                        removedCount += (beforeCount - afterCount);
                     }
 
                     if (processed.status === 'already_liked') {
-                        const beforeCount = this.pendingActions.length;
                         this.pendingActions = this.pendingActions.filter(action =>
                             !(action.crinzId === processed.crinzId && action.type === 'like')
                         );
-                        const afterCount = this.pendingActions.length;
-                        removedCount += (beforeCount - afterCount);
                     }
 
                     if (processed.status === 'not_liked') {
-                        const beforeCount = this.pendingActions.length;
                         this.pendingActions = this.pendingActions.filter(action =>
                             !(action.crinzId === processed.crinzId && action.type === 'unlike')
                         );
-                        const afterCount = this.pendingActions.length;
-                        removedCount += (beforeCount - afterCount);
                     }
 
                     if (processed.status === 'comment_added' && processed.commentId) {
                         const matchingAction = this.pendingActions.find(action =>
                             action.type === 'add_comment' &&
                             action.crinzId === processed.crinzId &&
-                            action.payload?.commentId &&
-                            processed.payload === action.payload?.comment
+                            (action.payload as CommentPayload)?.commentId &&
+                            processed.payload === (action.payload as CommentPayload)?.comment
                         );
 
                         if (matchingAction) {
-                            this.tempToRealIdMap.set(matchingAction.payload.commentId, processed.commentId);
+                            const commentPayload = matchingAction.payload as CommentPayload;
+                            this.tempToRealIdMap.set(commentPayload.commentId!, processed.commentId);
                             this.pendingActions = this.pendingActions.filter(action => action !== matchingAction);
-                            removedCount++;
                         }
                     }
 
-                    // Handle content not found errors
                     if (['post_not_found', 'reel_not_found', 'content_not_found'].includes(processed.status)) {
-                        const beforeCount = this.pendingActions.length;
                         this.pendingActions = this.pendingActions.filter(action =>
                             !(action.crinzId === processed.crinzId && action.type === processed.type)
                         );
-                        const afterCount = this.pendingActions.length;
-                        removedCount += (beforeCount - afterCount);
                     }
                 });
-
                 this.retryCount = 0;
             } else {
                 throw new Error(result.error || 'Sync failed');

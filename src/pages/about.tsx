@@ -1,14 +1,14 @@
-import { AboutSeo } from "../components/shared/Seo";
+import { AboutSEO } from "../components/shared/seoContent";
 
-export default function AboutApp() {
+export default function About() {
   return (
-    <div className="about-app" style={styles.wrapper}>
-      <AboutSeo />
-      <h1 style={styles.heading}>About CrinzPing 🔥</h1>
+    <div style={styles.wrapper}>
+      <AboutSEO />
+      <h1 style={styles.heading}>About CrinzPing</h1>
       <p style={styles.desc}>
-        CrinzPing isn’t your average “be-nice” social app.
-        It’s a wild feed of <b>roasts, savage vibes, and unapologetic laughs</b>.
-        Built for the bold, powered by the community — and evolving faster than your ego can recover.
+        Welcome to the future of social banter.
+        CrinzPing isn't just a platform; it's a movement where every message packs a punch.
+        If you're here to be polite, you're lost.
       </p>
 
       <h2 style={styles.subHeading}>What’s Hot Right Now ⚡</h2>
@@ -45,7 +45,7 @@ export default function AboutApp() {
         Your profile, your posts, your vibe — now public, now viral.
         Buckle up — the culture of savage honesty is only getting started. 🔥
       </p>
-    </div>
+    </div >
   )
 }
 

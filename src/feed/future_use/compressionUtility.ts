@@ -310,7 +310,7 @@ class CompressionUtility {
                 video.addEventListener('seeked', resolve, { once: true });
             });
 
-            let recordingStartTime = Date.now();
+            const recordingStartTime = Date.now();
             let lastFrameTime = 0;
 
             const drawFrame = () => {

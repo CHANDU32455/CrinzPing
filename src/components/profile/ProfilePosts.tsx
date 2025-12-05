@@ -3,12 +3,43 @@ import { useNavigate } from "react-router-dom";
 import { useUserPosts } from "../../hooks/useUserPosts_Reels";
 import { useAuth } from "react-oidc-context";
 import PostCompressionUtility from "../../utils/postsCompressionUtil";
+import { type CompressionStats } from "../../utils/postsCompressionUtil";
+import { API_ENDPOINTS } from "../../constants/apiEndpoints";
+import { VisibilityToggle } from "../shared/VisibilityToggle";
 
 interface UserMemesProps {
   userId?: string;
   previewMode?: boolean;
-  onPostClick?: (post: any) => void;
+  onPostClick?: (post: Post) => void;
   currentUserId?: string;
+}
+
+interface FileItem {
+  url: string;
+  type: string;
+  fileName?: string;
+  s3Key?: string;
+  isNew?: boolean;
+  file?: File;
+  originalSize?: number;
+  compressedSize?: number;
+  contentBase64?: string;
+}
+
+interface Post {
+  postId: string;
+  userId: string;
+  caption?: string;
+  tags?: string[];
+  files: FileItem[];
+  visibility?: "public" | "private";
+}
+
+interface EditFormData {
+  caption: string;
+  tags: string;
+  files: FileItem[];
+  visibility: "public" | "private";
 }
 
 const AudioPlayer = ({ audioUrl }: { audioUrl: string }) => {
@@ -96,19 +127,20 @@ const TagsDisplay = ({ tags }: { tags: string[] }) => {
 };
 
 const MemeEditModal = ({ post, isOpen, onClose, onSave }: {
-  post: any;
+  post: Post;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: any) => void;
+  onSave: (data: { caption: string; tags: string[]; files: FileItem[]; visibility: "public" | "private" }) => void;
 }) => {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<EditFormData>({
     caption: post.caption || '',
     tags: post.tags?.join(', ') || '',
-    files: post.files.map((file: any) => ({
+    files: post.files.map((file: FileItem) => ({
       ...file,
       url: file.url,
       isNew: false
-    }))
+    })),
+    visibility: post.visibility || "public"
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -146,24 +178,25 @@ const MemeEditModal = ({ post, isOpen, onClose, onSave }: {
   // Clean up object URLs
   useEffect(() => {
     return () => {
-      formData.files.forEach((file: any) => {
+      formData.files.forEach((file: FileItem) => {
         if (file.isNew && file.url) {
           URL.revokeObjectURL(file.url);
         }
       });
     };
-  }, []);
+  }, [formData.files]); // Fixed dependency
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
 
     try {
-      await onSave({
-        ...formData,
+      onSave({
+        caption: formData.caption,
         tags: formData.tags.split(',').map((tag: string) => tag.trim()).filter(Boolean),
-        files: formData.files
-      });
+        files: formData.files,
+        visibility: formData.visibility
+      }); // Pass only the necessary data
     } catch (error) {
       console.error('Save failed:', error);
     } finally {
@@ -180,7 +213,7 @@ const MemeEditModal = ({ post, isOpen, onClose, onSave }: {
 
     setFormData(prev => ({
       ...prev,
-      files: prev.files.filter((_: any, i: number) => i !== index)
+      files: prev.files.filter((_, i: number) => i !== index)
     }));
   };
 
@@ -189,7 +222,7 @@ const MemeEditModal = ({ post, isOpen, onClose, onSave }: {
     if (!files) return;
 
     const imageFiles = Array.from(files).filter(file => file.type.startsWith('image'));
-    const currentImageCount = formData.files.filter((f: { type: string; }) => f.type.startsWith('image')).length;
+    const currentImageCount = formData.files.filter((f: FileItem) => f.type.startsWith('image')).length;
 
     if (currentImageCount + imageFiles.length > 5) {
       alert('Maximum 5 images allowed');
@@ -198,9 +231,9 @@ const MemeEditModal = ({ post, isOpen, onClose, onSave }: {
 
     try {
       // Compress new images
-      const compressionStats = await PostCompressionUtility.compressImages(imageFiles);
+      const compressionStats: CompressionStats = await PostCompressionUtility.compressImages(imageFiles);
 
-      const newFiles = compressionStats.files.map(result => ({
+      const newFiles: FileItem[] = compressionStats.files.map(result => ({
         url: URL.createObjectURL(result.file),
         file: result.file,
         type: result.file.type,
@@ -220,7 +253,7 @@ const MemeEditModal = ({ post, isOpen, onClose, onSave }: {
     } catch (error) {
       console.error('Image compression failed:', error);
       // Fallback to uncompressed files
-      const newFiles = imageFiles.map(file => ({
+      const newFiles: FileItem[] = imageFiles.map(file => ({
         url: URL.createObjectURL(file),
         file: file,
         type: file.type,
@@ -253,8 +286,8 @@ const MemeEditModal = ({ post, isOpen, onClose, onSave }: {
       const trimmedAudio = await PostCompressionUtility.trimAudio(audioFile);
       const compressedAudio = await PostCompressionUtility.compressAudio(trimmedAudio);
 
-      const filteredFiles = formData.files.filter((f: { type: string; }) => !f.type.startsWith('audio'));
-      const newAudioFile = {
+      const filteredFiles = formData.files.filter((f: FileItem) => !f.type.startsWith('audio'));
+      const newAudioFile: FileItem = {
         url: URL.createObjectURL(compressedAudio),
         file: compressedAudio,
         type: compressedAudio.type,
@@ -277,13 +310,13 @@ const MemeEditModal = ({ post, isOpen, onClose, onSave }: {
     }
   };
 
-  const getImageFiles = () => formData.files.filter((f: { type: string; }) => f.type.startsWith('image'));
-  const getAudioFile = () => formData.files.find((f: { type: string; }) => f.type.startsWith('audio'));
+  const getImageFiles = (): FileItem[] => formData.files.filter((f: FileItem) => f.type.startsWith('image'));
+  const getAudioFile = (): FileItem | undefined => formData.files.find((f: FileItem) => f.type.startsWith('audio'));
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-[100] p-4">
+    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-[100] p-4 pb-20 sm:pb-4">
       <div
         ref={modalRef}
         className="bg-gray-800 rounded-t-xl sm:rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-slide-up sm:animate-scale-in"
@@ -328,7 +361,7 @@ const MemeEditModal = ({ post, isOpen, onClose, onSave }: {
               />
 
               <div className="grid grid-cols-3 gap-3">
-                {getImageFiles().map((file: any, index: Key | null | undefined) => (
+                {getImageFiles().map((file: FileItem, index: Key | null | undefined) => (
                   <div key={index} className="relative group">
                     <img
                       src={file.url}
@@ -384,7 +417,7 @@ const MemeEditModal = ({ post, isOpen, onClose, onSave }: {
 
               {getAudioFile() ? (
                 <div className="bg-gray-700 p-4 rounded-lg">
-                  <AudioPlayer audioUrl={getAudioFile().url} />
+                  <AudioPlayer audioUrl={getAudioFile()!.url} />
                   <div className="mt-2">
                     <button
                       type="button"
@@ -436,6 +469,14 @@ const MemeEditModal = ({ post, isOpen, onClose, onSave }: {
               </div>
             </div>
 
+            {/* Visibility Toggle */}
+            <div className="mb-6">
+              <VisibilityToggle
+                visibility={formData.visibility}
+                onToggle={(newVisibility) => setFormData(prev => ({ ...prev, visibility: newVisibility }))}
+              />
+            </div>
+
             <div className="flex gap-3 justify-end pt-4 border-t border-gray-700">
               <button
                 type="button"
@@ -468,7 +509,7 @@ const MemeEditModal = ({ post, isOpen, onClose, onSave }: {
 };
 
 const DeleteConfirmModal = ({ isOpen, onCancel, onConfirm, isProcessing }: {
-  post: any;
+  post: Post;
   isOpen: boolean;
   onCancel: () => void;
   onConfirm: () => void;
@@ -549,24 +590,24 @@ export const UserMemes = ({ userId, previewMode = false, onPostClick, currentUse
   const access_token = auth.user?.access_token;
 
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
-  const [editModal, setEditModal] = useState<{ isOpen: boolean; post: any } | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; post: any } | null>(null);
+  const [editModal, setEditModal] = useState<{ isOpen: boolean; post: Post } | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; post: Post } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
   // For preview mode, show only first 6 posts
   const displayPosts = previewMode ? posts.slice(0, 6) : posts;
 
-  const handleEdit = (post: any) => {
+  const handleEdit = (post: Post) => {
     setMenuOpen(null);
     setEditModal({ isOpen: true, post });
   };
 
-  const handleDelete = (post: any) => {
+  const handleDelete = (post: Post) => {
     setMenuOpen(null);
     setDeleteConfirm({ isOpen: true, post });
   };
 
-  const handlePostClick = (post: any) => {
+  const handlePostClick = (post: Post) => {
     if (menuOpen || editModal || deleteConfirm) return;
 
     if (onPostClick) {
@@ -637,7 +678,7 @@ export const UserMemes = ({ userId, previewMode = false, onPostClick, currentUse
       };
 
       const res = await fetch(
-        `${import.meta.env.VITE_BASE_API_URL}/addCrinzMemePost`,
+        `${import.meta.env.VITE_BASE_API_URL}${API_ENDPOINTS.CREATE_POST}`,
         {
           method: "POST",
           headers: {
@@ -659,26 +700,26 @@ export const UserMemes = ({ userId, previewMode = false, onPostClick, currentUse
 
     } catch (error) {
       console.error('Error deleting post:', error);
-      alert('Failed to delete post: ' + (error as Error).message);
+      alert('Failed to delete post: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const handleSaveEdit = async (updatedData: any) => {
+  const handleSaveEdit = async (updatedData: { caption: string; tags: string[]; files: FileItem[]; visibility: "public" | "private" }) => {
     if (!editModal || !access_token) return;
 
     setIsProcessing(true);
     try {
       // Process files with compression for new files
       const processedFiles = await Promise.all(
-        updatedData.files.map(async (file: any) => {
+        updatedData.files.map(async (file: FileItem) => {
           if (file.isNew && file.file) {
             // Compress new images
             let finalFile = file.file;
 
             if (file.type.startsWith('image')) {
-              const compressionStats = await PostCompressionUtility.compressImages([file.file]);
+              const compressionStats: CompressionStats = await PostCompressionUtility.compressImages([file.file]);
               finalFile = compressionStats.files[0].file;
               PostCompressionUtility.logCompressionStats(compressionStats);
             } else if (file.type.startsWith('audio')) {
@@ -712,12 +753,13 @@ export const UserMemes = ({ userId, previewMode = false, onPostClick, currentUse
         postId: editModal.post.postId,
         caption: updatedData.caption,
         tags: updatedData.tags,
-        files: processedFiles
+        files: processedFiles,
+        visibility: updatedData.visibility
       };
 
       console.log('Sending update payload to Lambda:', payload);
 
-      const res = await fetch(`${import.meta.env.VITE_BASE_API_URL}/addCrinzMemePost`, {
+      const res = await fetch(`${import.meta.env.VITE_BASE_API_URL}${API_ENDPOINTS.CREATE_POST}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -738,16 +780,16 @@ export const UserMemes = ({ userId, previewMode = false, onPostClick, currentUse
 
     } catch (error) {
       console.error('Error updating post:', error);
-      alert('Failed to update post: ' + (error as Error).message);
+      alert('Failed to update post: ' + (error instanceof Error ? error.message : 'Unknown error'));
       throw error;
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const isOwnPost = (post: any) => currentUserId && post.userId === currentUserId;
-  const getFirstImage = (post: any) => post.files.find((f: any) => f.type.startsWith("image"));
-  const getAudioFile = (post: any) => post.files.find((f: any) => f.type.startsWith("audio"));
+  const isOwnPost = (post: Post) => currentUserId && post.userId === currentUserId;
+  const getFirstImage = (post: Post): FileItem | undefined => post.files.find((f: FileItem) => f.type.startsWith("image"));
+  const getAudioFile = (post: Post): FileItem | undefined => post.files.find((f: FileItem) => f.type.startsWith("audio"));
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center py-16">
@@ -766,7 +808,7 @@ export const UserMemes = ({ userId, previewMode = false, onPostClick, currentUse
   return (
     <div className="w-full">
       <div className={`grid gap-4 ${previewMode ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"}`}>
-        {displayPosts.map(post => {
+        {displayPosts.map((post: Post) => {
           const firstImage = getFirstImage(post);
           const audioFile = getAudioFile(post);
 

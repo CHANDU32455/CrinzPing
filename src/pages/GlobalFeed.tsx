@@ -6,7 +6,6 @@ import { batchSyncer, useBatchSync } from "../utils/msgsBatchSyncer";
 import UserAvatar from "../utils/UserAvatar";
 import ShareComponent from "../components/shared/ShareComponent";
 import CommentModal from "../components/feed/CommentModal";
-import SyncStatusIndicator from "../utils/SyncStatusIndicator";
 import "../styles/global-feed.css";
 import { contentManager } from "../utils/Posts_Reels_Stats_Syncer";
 
@@ -419,7 +418,7 @@ const GlobalFeed: React.FC = () => {
       )}
 
       {/* Sync Status Indicator - Only show in development */}
-      {process.env.NODE_ENV === 'development' && <SyncStatusIndicator />}
+
 
       {selectedPost && (
         <CommentModal

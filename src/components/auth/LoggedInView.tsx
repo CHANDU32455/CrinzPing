@@ -4,7 +4,6 @@ import ShareComponent from "../shared/ShareComponent";
 import { useState } from "react";
 import { useAuth } from "react-oidc-context";
 import CommentModal from "../feed/CommentModal";
-import SyncStatusIndicator from "../../utils/SyncStatusIndicator";
 import PersonalizedFeed from "../../pages/PersonalizedFeed";
 
 interface Props {
@@ -311,7 +310,7 @@ function LoggedInView({
       </div>
 
       {/* Dev-only: show sync indicator */}
-      {process.env.NODE_ENV === 'development' && <SyncStatusIndicator />}
+
 
       {/* Auto Mode Toggle */}
       <div

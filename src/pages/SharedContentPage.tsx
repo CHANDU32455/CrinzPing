@@ -7,15 +7,46 @@ import ReelTile from "../components/feed/ReelTile";
 import CrinzTile from "../components/feed/CrinzMessageTile";
 import CommentModal from "../components/feed/CommentModal";
 import ShareComponent from "../components/shared/ShareComponent";
+import SEO from "../components/shared/SEO";
 import { contentManager } from "../utils/Posts_Reels_Stats_Syncer";
-import SyncStatusIndicator from "../utils/SyncStatusIndicator";
+import { API_ENDPOINTS } from "../constants/apiEndpoints";
+
+interface CommentItem {
+    id: string;
+    type: 'post' | 'reel' | 'crinz_message';
+    content: string;
+    user?: {
+        userName: string;
+    };
+    commentCount?: number;
+}
+
+interface ShareFile {
+    type: string;
+    url: string;
+}
+
+interface ShareItem {
+    id: string;
+    type: 'post' | 'reel' | 'crinz_message';
+    content: string;
+    user?: {
+        userName: string;
+    };
+    files?: ShareFile[];
+    timestamp?: number;
+    likeCount?: number;
+    likes?: number;
+    commentCount?: number;
+    comments?: number;
+}
 
 interface SharedContent {
     id: string;
     type: "crinz_message" | "post" | "reel";
     userId: string;
     content: string;
-    timestamp: number;
+    timestamp: string; // Change back to string to match components
     likeCount: number;
     commentCount: number;
     files: Array<{
@@ -33,6 +64,8 @@ interface SharedContent {
     userIsAuthenticated: boolean;
     hasAudio?: boolean;
     imageCount?: number;
+    likes?: number;
+    comments?: number;
 }
 
 // Custom authentication alert component
@@ -114,15 +147,13 @@ export default function SharedContentPage() {
                 setLoading(true);
                 setError(null);
 
-                // In your fetchSharedContent function, update the payload:
                 const payload = {
                     contentType,
                     contentId,
-                    currentUserId: auth.isAuthenticated ? currentUserId : null // Send user ID if authenticated
+                    currentUserId: auth.isAuthenticated ? currentUserId : null
                 };
                 const headers: HeadersInit = { "Content-Type": "application/json" };
 
-                // ✅ ALWAYS include Authorization header if we have access token
                 if (accessToken) {
                     headers.Authorization = `Bearer ${accessToken}`;
                     console.log("🔐 Sending access token with request");
@@ -131,7 +162,7 @@ export default function SharedContentPage() {
                 }
 
                 const response = await fetch(
-                    `${import.meta.env.VITE_BASE_API_URL}/getShareContent`,
+                    `${import.meta.env.VITE_BASE_API_URL}${API_ENDPOINTS.GET_SHARE_CONTENT}`,
                     {
                         method: "POST",
                         headers,
@@ -146,17 +177,23 @@ export default function SharedContentPage() {
 
                 const data = await response.json();
 
+                // Convert timestamp from number to string for component compatibility
+                const contentData = {
+                    ...data.content,
+                    timestamp: new Date(data.content.timestamp).toISOString() // Convert to ISO string
+                };
+
                 // Set the content from the response
-                setContent(data.content);
+                setContent(contentData);
 
                 // Initialize content manager stats if authenticated
-                if (data.content.userIsAuthenticated) {
-                    contentManager.initializeContentStats(data.content.id, {
-                        likeCount: data.content.likeCount,
-                        commentCount: data.content.commentCount,
+                if (contentData.userIsAuthenticated) {
+                    contentManager.initializeContentStats(contentData.id, {
+                        likeCount: contentData.likeCount,
+                        commentCount: contentData.commentCount,
                         shareCount: 0,
                         viewCount: 0,
-                        isLikedByUser: data.content.isLikedByUser
+                        isLikedByUser: contentData.isLikedByUser
                     });
                 }
 
@@ -205,8 +242,7 @@ export default function SharedContentPage() {
         auth.signinRedirect();
     }, [auth]);
 
-    // Updated handlers with authentication checks
-    const handleOpenComment = useCallback((item: any) => {
+    const handleOpenComment = useCallback((item: CommentItem) => {
         console.log('🔍 Opening comment for:', {
             id: item.id,
             type: item.type,
@@ -234,15 +270,22 @@ export default function SharedContentPage() {
         setCommentModal(null);
     }, []);
 
-    const handleOpenShare = useCallback((item: any) => {
-        const mediaUrl = Array.isArray(item.files) ? item.files.find((f: any) => f.type?.startsWith('video/') || f.type?.startsWith('image/'))?.url : undefined;
+    const handleOpenShare = useCallback((item: ShareItem) => {
+        const mediaUrl = Array.isArray(item.files) ? item.files.find((f: ShareFile) => f.type?.startsWith('video/') || f.type?.startsWith('image/'))?.url : undefined;
+
+        // Handle both string and number timestamps
+        let timestamp = item.timestamp;
+        if (typeof timestamp === 'string') {
+            timestamp = new Date(timestamp).getTime(); // Convert to number for ShareComponent
+        }
+
         setShareModal({
             isOpen: true,
             contentId: item.id,
             contentType: item.type,
             userName: item.user?.userName || 'Anonymous',
             message: item.content,
-            timestamp: item.timestamp || Date.now(),
+            timestamp: timestamp || Date.now(),
             likeCount: item.likeCount ?? item.likes ?? 0,
             commentCount: item.commentCount ?? item.comments ?? 0,
             mediaUrl
@@ -261,7 +304,16 @@ export default function SharedContentPage() {
 
     const handleWrappedShare = useCallback(() => {
         if (!content) return;
-        handleOpenShare(content);
+
+        // Convert SharedContent to ShareItem by handling timestamp conversion
+        const shareItem: ShareItem = {
+            ...content,
+            timestamp: typeof content.timestamp === 'string'
+                ? new Date(content.timestamp).getTime()
+                : content.timestamp
+        };
+
+        handleOpenShare(shareItem);
     }, [content, handleOpenShare]);
 
     const handleWrappedLikeUpdate = useCallback((contentId: string, newLikeCount: number, isLiked: boolean) => {
@@ -356,118 +408,161 @@ export default function SharedContentPage() {
         );
     }
 
+    // Get the best image for SEO sharing
+    const getShareImage = () => {
+        if (!content?.files?.length) return undefined;
+
+        // For reels, try to get thumbnail or first video frame
+        if (content.type === 'reel') {
+            // Check for explicit thumbnail
+            const thumbnail = content.files.find(f => f.type?.startsWith('image/'));
+            if (thumbnail) return thumbnail.url;
+            // Otherwise return video URL (some platforms can extract frame)
+            const video = content.files.find(f => f.type?.startsWith('video/'));
+            return video?.url;
+        }
+
+        // For posts, get first image
+        const image = content.files.find(f => f.type?.startsWith('image/'));
+        return image?.url;
+    };
+
+    const getContentTitle = () => {
+        if (content.type === 'reel') return `Reel by ${content.user?.userName || 'Anonymous'} | CrinzPing`;
+        if (content.type === 'post') return `Post by ${content.user?.userName || 'Anonymous'} | CrinzPing`;
+        return `Crinz by ${content.user?.userName || 'Anonymous'} | CrinzPing`;
+    };
+
+    // Generic description for crinz (don't reveal actual message), show caption for reels/posts
+    const getContentDescription = () => {
+        if (content.type === 'crinz_message') {
+            return `Check out this Crinz on CrinzPing - the cringiest social platform! 🤭`;
+        }
+        return content.content?.slice(0, 160) || `Check out this ${content.type} on CrinzPing`;
+    };
+
     return (
-        <div className="min-h-screen bg-gray-950 py-8 px-4">
-            <div className="max-w-2xl mx-auto">
-                {/* Header with auth status */}
-                <div className="flex items-center justify-between mb-8">
-                    <button
-                        onClick={() => navigate("/")}
-                        className="flex items-center gap-2 text-gray-300 hover:text-white transition-colors"
-                    >
-                        <span>←</span>
-                        Back to Home
-                    </button>
-                    <div className="text-right">
-                        <p className="text-gray-400 text-sm">
-                            {content.userIsAuthenticated ? "🔐 Authenticated Access" : "🔓 Public Access"}
-                        </p>
-                    </div>
-                </div>
-
-                {/* Content Tile - Using same components as PersonalizedFeed */}
-                <div className="scroll-m-20">
-                    {content.type === 'post' && (
-                        <PostTile
-                            item={content}
-                            onComment={handleWrappedComment}
-                            onShare={handleWrappedShare}
-                            onLikeUpdate={handleWrappedLikeUpdate}
-                        />
-                    )}
-                    {content.type === 'reel' && (
-                        <ReelTile
-                            item={content}
-                            onComment={handleWrappedComment}
-                            onShare={handleWrappedShare}
-                            onLikeUpdate={handleWrappedLikeUpdate}
-                        />
-                    )}
-                    {content.type === 'crinz_message' && (
-                        <CrinzTile
-                            item={content}
-                            onComment={handleWrappedComment}
-                            onShare={handleWrappedShare}
-                            onLikeUpdate={handleWrappedLikeUpdate}
-                        />
-                    )}
-                </div>
-
-                {/* Auth Status Info */}
-                <div className="mt-6 p-4 bg-gray-800/50 border border-gray-700/50 rounded-lg">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-gray-400 text-xs">
-                                {content.userIsAuthenticated
-                                    ? "You can like, comment, and interact with this content"
-                                    : "Sign in to interact with this content"
-                                }
+        <>
+            {/* Dynamic SEO - Uses reel thumbnail or post image for social sharing! */}
+            <SEO
+                title={getContentTitle()}
+                description={getContentDescription()}
+                image={getShareImage()}
+                url={`https://crinzping.com/shared/${content.type}/${content.id}`}
+                type={content.type === 'reel' ? 'video.other' : 'article'}
+            />
+            <div className="min-h-screen bg-gray-950 py-8 px-4">
+                <div className="max-w-2xl mx-auto">
+                    {/* Header with auth status */}
+                    <div className="flex items-center justify-between mb-8">
+                        <button
+                            onClick={() => navigate("/")}
+                            className="flex items-center gap-2 text-gray-300 hover:text-white transition-colors"
+                        >
+                            <span>←</span>
+                            Back to Home
+                        </button>
+                        <div className="text-right">
+                            <p className="text-gray-400 text-sm">
+                                {content.userIsAuthenticated ? "🔐 Authenticated Access" : "🔓 Public Access"}
                             </p>
                         </div>
-                        {!auth.isAuthenticated && (
-                            <button
-                                onClick={() => auth.signinRedirect()}
-                                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm transition-colors"
-                            >
-                                Sign In
-                            </button>
+                    </div>
+
+                    {/* Content Tile - Using same components as PersonalizedFeed */}
+                    <div className="scroll-m-20">
+                        {content.type === 'post' && (
+                            <PostTile
+                                item={content}
+                                onComment={handleWrappedComment}
+                                onShare={handleWrappedShare}
+                                onLikeUpdate={handleWrappedLikeUpdate}
+                            />
+                        )}
+                        {content.type === 'reel' && (
+                            <ReelTile
+                                item={content}
+                                onComment={handleWrappedComment}
+                                onShare={handleWrappedShare}
+                                onLikeUpdate={handleWrappedLikeUpdate}
+                            />
+                        )}
+                        {content.type === 'crinz_message' && (
+                            <CrinzTile
+                                item={content}
+                                onComment={handleWrappedComment}
+                                onShare={handleWrappedShare}
+                                onLikeUpdate={handleWrappedLikeUpdate}
+                            />
                         )}
                     </div>
+
+                    {/* Auth Status Info */}
+                    <div className="mt-6 p-4 bg-gray-800/50 border border-gray-700/50 rounded-lg">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-gray-400 text-xs">
+                                    {content.userIsAuthenticated
+                                        ? "You can like, comment, and interact with this content"
+                                        : "Sign in to interact with this content"
+                                    }
+                                </p>
+                            </div>
+                            {!auth.isAuthenticated && (
+                                <button
+                                    onClick={() => auth.signinRedirect()}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm transition-colors"
+                                >
+                                    Sign In
+                                </button>
+                            )}
+                        </div>
+                    </div>
                 </div>
+
+                {/* Auth Required Alert */}
+                {showAuthAlert && (
+                    <AuthRequiredAlert
+                        onClose={handleCloseAuthAlert}
+                        onSignIn={handleSignInFromAlert}
+                    />
+                )}
+
+
+
+                {/* Comment Modal */}
+                {commentModal && (
+                    <CommentModal
+                        postId={commentModal.postId}
+                        isOpen={commentModal.isOpen}
+                        onClose={handleCloseComment}
+                        userName={commentModal.userName}
+                        postMessage={commentModal.postMessage}
+                        commentCount={commentModal.commentCount}
+                        contentType={commentModal.contentType}
+                        currentUserId={currentUserId}
+                        accessToken={accessToken}
+                        onNewComment={handleNewComment}
+                        onDeleteComment={handleDeleteComment}
+                    />
+                )}
+
+                {/* Share Modal */}
+                {shareModal && (
+                    <ShareComponent
+                        isOpen={shareModal.isOpen}
+                        onClose={handleCloseShare}
+                        postId={shareModal.contentId}
+                        userName={shareModal.userName}
+                        message={shareModal.message}
+                        timestamp={shareModal.timestamp}
+                        likeCount={shareModal.likeCount}
+                        commentCount={shareModal.commentCount}
+                        contentType={shareModal.contentType}
+                        mediaUrl={shareModal.mediaUrl}
+                    />
+                )}
             </div>
-
-            {/* Auth Required Alert */}
-            {showAuthAlert && (
-                <AuthRequiredAlert
-                    onClose={handleCloseAuthAlert}
-                    onSignIn={handleSignInFromAlert}
-                />
-            )}
-
-            {process.env.NODE_ENV === 'development' && <SyncStatusIndicator />}
-
-            {/* Comment Modal */}
-            {commentModal && (
-                <CommentModal
-                    postId={commentModal.postId}
-                    isOpen={commentModal.isOpen}
-                    onClose={handleCloseComment}
-                    userName={commentModal.userName}
-                    postMessage={commentModal.postMessage}
-                    commentCount={commentModal.commentCount}
-                    contentType={commentModal.contentType}
-                    currentUserId={currentUserId}
-                    accessToken={accessToken}
-                    onNewComment={handleNewComment}
-                    onDeleteComment={handleDeleteComment}
-                />
-            )}
-
-            {/* Share Modal */}
-            {shareModal && (
-                <ShareComponent
-                    isOpen={shareModal.isOpen}
-                    onClose={handleCloseShare}
-                    postId={shareModal.contentId}
-                    userName={shareModal.userName}
-                    message={shareModal.message}
-                    timestamp={shareModal.timestamp}
-                    likeCount={shareModal.likeCount}
-                    commentCount={shareModal.commentCount}
-                    contentType={shareModal.contentType}
-                    mediaUrl={shareModal.mediaUrl}
-                />
-            )}
-        </div>
+        </>
     );
 }

@@ -5,7 +5,6 @@ import CommentModal from "../components/feed/CommentModal";
 import { useAuth } from "react-oidc-context";
 import { contentManager } from "../utils/Posts_Reels_Stats_Syncer";
 import { useUserMemes } from "../hooks/useUserPosts_Reels"; // Import the hook
-import SyncStatusIndicator from "../utils/SyncStatusIndicator";
 
 // Define proper types based on your actual API response
 interface FileItem {
@@ -35,11 +34,38 @@ interface LocalPost {
 }
 
 interface LocationState {
-  posts: any[];
+  posts: LocalPost[];
   highlightedPostId: string;
-  userDetails?: any;
+  userDetails?: {
+    userProfilePic?: string;
+    userName?: string;
+    userTagline?: string;
+  };
   userId?: string;
   postType?: string;
+}
+
+interface ApiPost {
+  postId: string;
+  userId?: string;
+  caption?: string;
+  tags?: string[];
+  likes?: number;
+  comments?: number;
+  files?: Array<{
+    url?: string;
+    presignedUrl?: string;
+    type: string;
+    isCustom?: boolean;
+    fileName?: string;
+    s3Key?: string;
+  }>;
+  likedByUser?: boolean;
+  type?: string;
+  timestamp?: number;
+  visibility?: string;
+  pk?: string;
+  sk?: string;
 }
 
 const PostsAllPage: React.FC = () => {
@@ -71,7 +97,7 @@ const PostsAllPage: React.FC = () => {
 
   useEffect(() => {
     if (postsFromHook && postsFromHook.length > 0) {
-      let formattedPosts: LocalPost[] = postsFromHook.map((post: any) => {
+      let formattedPosts: LocalPost[] = postsFromHook.map((post: ApiPost) => {
         // ✅ Just use API data as-is - no content manager sync on load
         return {
           postId: post.postId,
@@ -80,7 +106,7 @@ const PostsAllPage: React.FC = () => {
           tags: post.tags || [],
           likes: post.likes || 0,
           comments: post.comments || 0,
-          files: post.files?.map((file: any) => ({
+          files: post.files?.map((file) => ({
             presignedUrl: file.url || file.presignedUrl || '',
             type: file.type,
             isCustom: file.isCustom,
@@ -637,11 +663,6 @@ const PostsAllPage: React.FC = () => {
         </div>
       </div>
 
-      {process.env.NODE_ENV === 'development' && (
-        <div className="fixed bottom-4 right-4 z-50 max-w-xs max-h-32 overflow-hidden">
-          <SyncStatusIndicator />
-        </div>
-      )}
       {selectedPost && (
         <CommentModal
           postId={selectedPost.postId}

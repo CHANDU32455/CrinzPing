@@ -1,11 +1,12 @@
 import { useEffect, useRef } from "react";
 
-// Extend window interface for Google AdSense
-declare global {
-  interface Window {
-    adsbygoogle: any[];
-  }
+interface AdSenseConfig {
+  'data-ad-client': string;
+  'data-ad-slot': string;
+  'data-ad-format': string;
+  'data-full-width-responsive': string;
 }
+
 // Ad Component
 export default function AdUnit() {
   const adContainerRef = useRef<HTMLDivElement>(null);
@@ -32,8 +33,8 @@ export default function AdUnit() {
           };
           document.head.appendChild(script);
         }
-      } catch (e) {
-        console.error("AdSense error:", e);
+      } catch (error) {
+        console.error("AdSense error:", error);
       }
     };
 
@@ -42,6 +43,13 @@ export default function AdUnit() {
 
     return () => clearTimeout(timer);
   }, []);
+
+  const adConfig: AdSenseConfig = {
+    'data-ad-client': 'ca-pub-9109025008323118',
+    'data-ad-slot': '5969691753',
+    'data-ad-format': 'auto',
+    'data-full-width-responsive': 'true'
+  };
 
   return (
     <div className="reel-ad-container" ref={adContainerRef}>
@@ -53,10 +61,7 @@ export default function AdUnit() {
           display: "block",
           margin: "12px 0",
         }}
-        data-ad-client="ca-pub-9109025008323118"
-        data-ad-slot="5969691753"
-        data-ad-format="auto"
-        data-full-width-responsive="true"
+        {...adConfig}
       ></ins>
     </div>
   );

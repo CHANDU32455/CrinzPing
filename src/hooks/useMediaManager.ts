@@ -93,6 +93,15 @@ export const useVideoPlayer = () => {
   }, []);
 
   const playVideo = useCallback((id: string) => {
+    // First, pause ALL other videos to ensure only one plays at a time
+    videoRefs.current.forEach((video, videoId) => {
+      if (videoId !== id) {
+        video.pause();
+        playStates.current.set(videoId, false);
+      }
+    });
+
+    // Now play the requested video
     const video = videoRefs.current.get(id);
     if (video) {
       const isMuted = mutedStates.current.get(id) ?? true;

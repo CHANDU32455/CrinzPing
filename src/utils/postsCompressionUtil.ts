@@ -97,11 +97,9 @@ class PostCompressionUtility {
                         { type: 'audio/wav' }
                     );
 
-                    console.log(`✂️ Audio trimmed from ${duration.toFixed(1)}s to ${trimTo}s`);
                     resolve(trimmedFile);
 
-                } catch (error) {
-                    console.error('Audio trimming failed:', error);
+                } catch {
                     resolve(audioFile); // Fallback to original
                 }
             };
@@ -163,8 +161,6 @@ class PostCompressionUtility {
 
     // Compress audio to MP3 for final submission
     static async compressAudio(audioFile: File): Promise<File> {
-        const startTime = Date.now();
-
         return new Promise((resolve, reject) => {
             const audioContext = new AudioContext();
             const fileReader = new FileReader();
@@ -209,18 +205,9 @@ class PostCompressionUtility {
                         { type: "audio/mp3" }
                     );
 
-
-                    const timeTaken = Date.now() - startTime;
-
-                    console.log(`🎵 Audio compressed: ${this.formatBytes(audioFile.size)} → ${this.formatBytes(compressedFile.size)}`);
-                    console.log(`⏱️ Duration: ${trimTo.toFixed(1)}s`);
-                    console.log(`⚡ Bitrate: ${this.targetBitrate}kbps`);
-                    console.log(`⏰ Time taken: ${timeTaken}ms`);
-
                     resolve(compressedFile);
 
-                } catch (error) {
-                    console.error('Audio compression failed:', error);
+                } catch {
                     // Fallback: return original but limit size
                     if (audioFile.size > 200 * 1024) {
                         const compressedFile = new File(
@@ -315,8 +302,7 @@ class PostCompressionUtility {
                 isTrimmed: false // Images don't get trimmed
             };
 
-        } catch (error) {
-            console.error('Image compression failed:', error);
+        } catch {
             // Return original file as fallback
             return {
                 file,
@@ -398,9 +384,7 @@ class PostCompressionUtility {
                 formData.append('audio', processedAudio);
                 stats.totalOriginalSize += audio.size;
                 stats.totalCompressedSize += processedAudio.size;
-                console.log(`🎵 Final audio: ${this.formatBytes(audio.size)} → ${this.formatBytes(processedAudio.size)}`);
-            } catch (error) {
-                console.error('Audio processing failed, using original:', error);
+            } catch {
                 formData.append('audio', audio);
                 processedAudio = audio;
                 stats.totalOriginalSize += audio.size;
@@ -426,22 +410,22 @@ class PostCompressionUtility {
         return { formData, stats };
     }
 
-    // Log compression results for monitoring
-    static logCompressionStats(stats: CompressionStats): void {
-        console.group(`📊 POST Compression Results`);
-        console.log(`Total Original: ${this.formatBytes(stats.totalOriginalSize)}`);
-        console.log(`Total Compressed: ${this.formatBytes(stats.totalCompressedSize)}`);
-        console.log(`Compression Ratio: ${stats.totalCompressionRatio.toFixed(2)}%`);
-        console.log(`Time Taken: ${stats.totalTimeTaken}ms`);
-        console.log(`Files Processed: ${stats.files.length}`);
+    static logCompressionStats(stats: CompressionStats) {
+        console.group('🚀 Compression Statistics');
+        console.log(`Total Original Size: ${this.formatBytes(stats.totalOriginalSize)}`);
+        console.log(`Total Compressed Size: ${this.formatBytes(stats.totalCompressedSize)}`);
+        console.log(`Overall Compression Ratio: ${stats.totalCompressionRatio.toFixed(2)}%`);
+        console.log(`Total Time Taken: ${stats.totalTimeTaken}ms`);
+        console.log('----------------------------------------');
 
         stats.files.forEach((file, index) => {
-            console.log(
-                `File ${index + 1}: ${this.formatBytes(file.originalSize)} → ${this.formatBytes(file.compressedSize)} ` +
-                `(${file.compressionRatio.toFixed(2)}%) in ${file.timeTaken}ms`
-            );
+            console.group(`File ${index + 1}: ${file.file.name}`);
+            console.log(`Original: ${this.formatBytes(file.originalSize)}`);
+            console.log(`Compressed: ${this.formatBytes(file.compressedSize)}`);
+            console.log(`Ratio: ${file.compressionRatio.toFixed(2)}%`);
+            console.log(`Time: ${file.timeTaken}ms`);
+            console.groupEnd();
         });
-
         console.groupEnd();
     }
 }

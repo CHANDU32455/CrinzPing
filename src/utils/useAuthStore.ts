@@ -29,7 +29,6 @@ let initialAuthLogged = false;
 export const setAuthData = (auth: AuthData, isInitialAuth: boolean = false) => {
   // Validate auth data before setting
   if (!auth.id_token || !auth.access_token || !auth.profile?.sub) {
-    console.error("Auth: Invalid auth data provided");
     throw new Error("Invalid authentication data");
   }
 
@@ -46,25 +45,18 @@ export const setAuthData = (auth: AuthData, isInitialAuth: boolean = false) => {
     profile: { ...auth.profile }
   };
 
-  try {
-    localStorage.setItem("id_token", auth.id_token);
-    localStorage.setItem("access_token", auth.access_token);
-    localStorage.setItem("email", auth.profile.email);
-    localStorage.setItem("sub", auth.profile.sub);
-    localStorage.setItem("refresh_token_expires_at", refreshTokenExpiry.toString());
-    localStorage.setItem("last_login", Date.now().toString());
-    localStorage.removeItem("auth_error");
-    localStorage.removeItem("manual_logout");
+  localStorage.setItem("id_token", auth.id_token);
+  localStorage.setItem("access_token", auth.access_token);
+  localStorage.setItem("email", auth.profile.email);
+  localStorage.setItem("sub", auth.profile.sub);
+  localStorage.setItem("refresh_token_expires_at", refreshTokenExpiry.toString());
+  localStorage.setItem("last_login", Date.now().toString());
+  localStorage.removeItem("auth_error");
+  localStorage.removeItem("manual_logout");
 
-    // Only log for new authentications or initial setup
-    if (isNewAuth || (isInitialAuth && !initialAuthLogged)) {
-      console.log("Auth: Data stored successfully");
-      initialAuthLogged = true;
-    }
-    // Otherwise, silent update - no console log
-  } catch (e) {
-    console.error("Auth: Failed to save auth data locally", e);
-    throw e;
+  // Only log for new authentications or initial setup
+  if (isNewAuth || (isInitialAuth && !initialAuthLogged)) {
+    initialAuthLogged = true;
   }
 };
 
@@ -76,7 +68,10 @@ export const getAuthItem = (
     const value = localStorage.getItem(key as string);
     return value;
   }
-  return (authObject as any)[key] ?? (authObject.profile as any)[key];
+  if (key in authObject) {
+    return authObject[key as keyof AuthData];
+  }
+  return authObject.profile[key as keyof AuthData["profile"]];
 };
 
 export const clearAuthData = () => {
@@ -93,8 +88,6 @@ export const clearAuthData = () => {
   ];
 
   itemsToRemove.forEach(item => localStorage.removeItem(item));
-
-  console.log("Auth: Essential auth data cleared");
 };
 
 // Check if refresh token is still valid (within 5 days)
@@ -110,7 +103,6 @@ export const isRefreshTokenValid = (): boolean => {
   const now = Date.now();
   const isValid = parseInt(refreshTokenExpiry, 10) > now;
 
-  console.log(`Auth: Refresh token valid: ${isValid}`);
   return isValid;
 };
 
@@ -118,14 +110,12 @@ export const isRefreshTokenValid = (): boolean => {
 export const shouldAttemptSilentLogin = (): boolean => {
   // Don't attempt if user manually logged out
   if (localStorage.getItem("manual_logout") === "true") {
-    console.log("Auth: Manual logout detected, skipping silent login");
     return false;
   }
 
   // Don't attempt if we have critical auth errors
   const recentAuthError = localStorage.getItem("auth_error");
   if (recentAuthError && recentAuthError !== "state_mismatch") {
-    console.log("Auth: Critical auth error detected, skipping silent login");
     return false;
   }
 

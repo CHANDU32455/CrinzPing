@@ -1,7 +1,6 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { usePersonalizedData } from "../hooks/usePersonalizedData";
 import { useMediaManager } from "../hooks/useMediaManager";
-import SyncStatusIndicator from "../utils/SyncStatusIndicator";
 import CommentModal from "../components/feed/CommentModal";
 import ShareComponent from "../components/shared/ShareComponent";
 import PostTile from "../components/feed/PostTile";
@@ -12,14 +11,81 @@ import { useAuth } from "react-oidc-context";
 import { contentManager } from "../utils/Posts_Reels_Stats_Syncer";
 import InFeedAd from "../components/ads/InFeedAd_widthed";
 import { APP_CONFIG } from "../config/appConfig";
+import getRoast from "../utils/roastMessages";
+
+// Define proper TypeScript interfaces
+interface FeedUser {
+  profilePic?: string;
+  userName?: string;
+  tagline?: string;
+}
+
+interface FeedFile {
+  type: string;
+  url: string;
+  id?: string;
+  name?: string;
+}
+
+interface BaseFeedItem {
+  id: string;
+  type: 'post' | 'reel' | 'crinz_message';
+  content?: string;
+  user?: FeedUser;
+  timestamp: number;
+  likeCount?: number;
+  likes?: number;
+  commentCount?: number;
+  comments?: number;
+  shareCount?: number;
+  isLiked?: boolean;
+  isLikedByUser?: boolean;
+  files?: FeedFile[];
+  degree?: number;
+}
+
+// Specific types for modal handlers
+interface CommentModalItem {
+  id: string;
+  type: 'post' | 'reel' | 'crinz_message';
+  content?: string;
+  user?: FeedUser;
+  commentCount?: number;
+  comments?: number;
+}
+
+interface ShareModalItem {
+  id: string;
+  type: 'post' | 'reel' | 'crinz_message';
+  content?: string;
+  user?: FeedUser;
+  timestamp: number;
+  likeCount?: number;
+  likes?: number;
+  commentCount?: number;
+  comments?: number;
+  files?: FeedFile[];
+}
 
 export const PersonalizedFeed = () => {
   const auth = useAuth();
   const userId = auth.user?.profile?.sub;
   const accessToken = auth.user?.access_token;
 
-  const { content, loading, hasMore, loadMore, metrics, updateContentItem } = usePersonalizedData();
+  const {
+    content,
+    loading,
+    loadingMore,
+    hasMore,
+    lastKey,
+    metrics,
+    refresh,
+    loadMore,
+    updateContentItem
+  } = usePersonalizedData();
+
   const { stopAllMedia } = useMediaManager();
+  const observerTarget = useRef<HTMLDivElement>(null);
 
   // Modal states
   const [commentModal, setCommentModal] = useState<{
@@ -43,11 +109,6 @@ export const PersonalizedFeed = () => {
     mediaUrl?: string;
   } | null>(null);
 
-  const handleLoadMore = useCallback(() => {
-    if (hasMore && !loading) {
-      loadMore();
-    }
-  }, [hasMore, loading, loadMore]);
 
   // Cleanup media on unmount
   useEffect(() => {
@@ -56,8 +117,54 @@ export const PersonalizedFeed = () => {
     };
   }, [stopAllMedia]);
 
-  // Handle opening comment modal
-  const handleOpenComment = useCallback((item: any) => {
+  const handleLoadMore = useCallback(() => {
+    console.log("🔄 Load More triggered:", { hasMore, lastKey, loading, loadingMore });
+
+    if (!hasMore) {
+      console.log("⏹️ No more content available");
+      return;
+    }
+
+    if (!lastKey) {
+      console.log("🔑 No lastKey available for pagination");
+      return;
+    }
+
+    if (loading || loadingMore) {
+      console.log("⏳ Already loading, skipping");
+      return;
+    }
+
+    loadMore();
+  }, [hasMore, lastKey, loading, loadingMore, loadMore]);
+
+  // Infinite scroll observer
+  useEffect(() => {
+    const currentObserverTarget = observerTarget.current; // ✅ Store ref in variable
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loading && !loadingMore) {
+          console.log("📱 Infinite scroll triggered");
+          handleLoadMore(); // ✅ Using memoized handleLoadMore
+        }
+      },
+      { threshold: 0.5 }
+    );
+
+    if (currentObserverTarget) {
+      observer.observe(currentObserverTarget);
+    }
+
+    return () => {
+      if (currentObserverTarget) { // ✅ Using stored variable for cleanup
+        observer.unobserve(currentObserverTarget);
+      }
+    };
+  }, [hasMore, loading, loadingMore, handleLoadMore]);
+
+
+  // Handle opening comment modal with proper typing
+  const handleOpenComment = useCallback((item: CommentModalItem) => {
     console.log('🔍 Opening comment for:', {
       id: item.id,
       type: item.type,
@@ -68,8 +175,8 @@ export const PersonalizedFeed = () => {
       isOpen: true,
       postId: item.id,
       userName: item.user?.userName || 'Anonymous',
-      postMessage: item.content,
-      commentCount: item.commentCount || 0,
+      postMessage: item.content || '',
+      commentCount: item.commentCount || item.comments || 0,
       contentType: item.type
     });
   }, []);
@@ -78,15 +185,19 @@ export const PersonalizedFeed = () => {
     setCommentModal(null);
   }, []);
 
-  const handleOpenShare = useCallback((item: any) => {
-    const mediaUrl = Array.isArray(item.files) ? item.files.find((f: any) => f.type?.startsWith('video/') || f.type?.startsWith('image/'))?.url : undefined;
+  // Handle opening share modal with proper typing
+  const handleOpenShare = useCallback((item: ShareModalItem) => {
+    const mediaUrl = Array.isArray(item.files)
+      ? item.files.find((f: FeedFile) => f.type?.startsWith('video/') || f.type?.startsWith('image/'))?.url
+      : undefined;
+
     setShareModal({
       isOpen: true,
       contentId: item.id,
       contentType: item.type,
       userName: item.user?.userName || 'Anonymous',
-      message: item.content,
-      timestamp: item.timestamp || Date.now(),
+      message: item.content || '',
+      timestamp: item.timestamp,
       likeCount: item.likeCount ?? item.likes ?? 0,
       commentCount: item.commentCount ?? item.comments ?? 0,
       mediaUrl
@@ -104,7 +215,6 @@ export const PersonalizedFeed = () => {
     updateContentItem(postId, (currentItem) => ({
       ...currentItem,
       commentCount: (currentItem.commentCount || 0) + 1,
-      comments: (currentItem.comments || 0) + 1 // Handle both field names
     }));
 
     // Update content manager stats
@@ -124,7 +234,6 @@ export const PersonalizedFeed = () => {
     updateContentItem(postId, (currentItem) => ({
       ...currentItem,
       commentCount: Math.max(0, (currentItem.commentCount || 1) - 1),
-      comments: Math.max(0, (currentItem.comments || 1) - 1)
     }));
 
     // Update content manager stats
@@ -137,7 +246,7 @@ export const PersonalizedFeed = () => {
     }
   }, [updateContentItem]);
 
-  // ✅ NEW: Handle like updates from child components
+  // ✅ Handle like updates from child components
   const handleLikeUpdate = useCallback((contentId: string, newLikeCount: number, isLiked: boolean) => {
     console.log('✅ Parent: Like updated for:', contentId, 'count:', newLikeCount, 'liked:', isLiked);
 
@@ -160,25 +269,81 @@ export const PersonalizedFeed = () => {
     }
   }, [updateContentItem]);
 
+  // Debug logging
+  useEffect(() => {
+    console.log("📊 Feed State:", {
+      itemsCount: content.length,
+      loading,
+      loadingMore,
+      hasMore,
+      lastKey: lastKey ? `${lastKey.substring(0, 30)}...` : 'None',
+      metrics: metrics?.stats
+    });
+  }, [content, loading, loadingMore, hasMore, lastKey, metrics]);
+
+  // Type assertion to handle the FeedItem from usePersonalizedData
+  const feedItems = content as BaseFeedItem[];
+
   return (
     <div className="py-4 md:py-8">
       <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="mb-6 md:mb-8">
-          {metrics && (
-            <p className="text-gray-400 text-sm">
-              Showing {content.length} items • {metrics.stats.followees_processed} friends • {metrics.stats.global_users_processed} discovered
-            </p>
-          )}
+        {/* Header with Refresh button */}
+        {/**
+         *  <div className="mb-6 md:mb-8 flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-white">Personalized Feed</h1>
+            {metrics && (
+              <p className="text-gray-400 text-sm mt-1">
+                {content.length} items • {metrics.stats?.users_processed || 0} users processed •
+                Degree 1: {metrics.stats?.degree_distribution?.degree_1 || 0} •
+                Degree 2: {metrics.stats?.degree_distribution?.degree_2 || 0}
+              </p>
+            )}
+          </div>
+          <button
+            onClick={refresh}
+            disabled={loading}
+            className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            {loading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                Refreshing...
+              </>
+            ) : (
+              <>
+                <span>🔄</span>
+                Refresh
+              </>
+            )}
+          </button>
         </div>
+         */}
 
         {/* Feed Content */}
         <div className="space-y-6 md:space-y-8">
-          {content.map((item, index) => (
+          {feedItems.map((item, index) => (
             <div key={item.id} className="scroll-m-20">
+              {/* Degree indicator badge */}
+              {item.degree && (
+                <div className="mb-2">
+                  <span className={`inline-block px-2 py-1 text-xs rounded-full ${item.degree === 1 ? 'bg-blue-900/30 text-blue-300' : 'bg-purple-900/30 text-purple-300'}`}>
+                    {item.degree === 1 ? '👥 Direct Connection' : '👥👥 Friend of Friend'}
+                  </span>
+                </div>
+              )}
+
               {item.type === 'post' && (
                 <PostTile
-                  item={item}
+                  item={{
+                    ...item,
+                    timestamp: item.timestamp.toString(), // Convert number to string
+                    content: item.content || '',
+                    likeCount: item.likeCount ?? item.likes ?? 0,
+                    commentCount: item.commentCount ?? item.comments ?? 0,
+                    shareCount: item.shareCount ?? 0,
+                    isLiked: item.isLikedByUser ?? item.isLiked ?? false
+                  }}
                   onComment={() => handleOpenComment(item)}
                   onShare={() => handleOpenShare(item)}
                   onLikeUpdate={handleLikeUpdate}
@@ -186,7 +351,15 @@ export const PersonalizedFeed = () => {
               )}
               {item.type === 'reel' && (
                 <ReelTile
-                  item={item}
+                  item={{
+                    ...item,
+                    timestamp: item.timestamp.toString(), // Convert number to string
+                    content: item.content || '',
+                    likeCount: item.likeCount ?? item.likes ?? 0,
+                    commentCount: item.commentCount ?? item.comments ?? 0,
+                    shareCount: item.shareCount ?? 0,
+                    isLiked: item.isLikedByUser ?? item.isLiked ?? false
+                  }}
                   onComment={() => handleOpenComment(item)}
                   onShare={() => handleOpenShare(item)}
                   onLikeUpdate={handleLikeUpdate}
@@ -194,7 +367,15 @@ export const PersonalizedFeed = () => {
               )}
               {item.type === 'crinz_message' && (
                 <CrinzTile
-                  item={item}
+                  item={{
+                    ...item,
+                    timestamp: item.timestamp.toString(), // Convert number to string
+                    content: item.content || '',
+                    likeCount: item.likeCount ?? item.likes ?? 0,
+                    commentCount: item.commentCount ?? item.comments ?? 0,
+                    shareCount: item.shareCount ?? 0,
+                    isLiked: item.isLikedByUser ?? item.isLiked ?? false
+                  }}
                   onComment={() => handleOpenComment(item)}
                   onShare={() => handleOpenShare(item)}
                   onLikeUpdate={handleLikeUpdate}
@@ -210,7 +391,7 @@ export const PersonalizedFeed = () => {
             </div>
           ))}
 
-          {/* Loading Skeletons */}
+          {/* Loading Skeletons for initial load */}
           {loading && content.length === 0 && (
             <>
               <FeedItemSkeleton />
@@ -219,36 +400,46 @@ export const PersonalizedFeed = () => {
             </>
           )}
 
-          {/* Load More */}
-          {hasMore && content.length > 0 && (
+          {/* Loading More indicator */}
+          {loadingMore && (
+            <div className="flex flex-col items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mb-4"></div>
+              <p className="text-gray-400">{getRoast.loading('feed')}</p>
+            </div>
+          )}
+
+          {/* Load More button (manual) */}
+          {hasMore && content.length > 0 && !loadingMore && (
             <div className="flex justify-center mt-8 md:mt-12">
               <button
                 onClick={handleLoadMore}
-                disabled={loading}
+                disabled={loading || loadingMore}
                 className="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-700 disabled:to-gray-800 text-white rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-xl disabled:cursor-not-allowed transform hover:scale-105 disabled:scale-100"
               >
-                {loading ? (
-                  <div className="flex items-center gap-3">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    Loading more content...
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <span>📥</span>
-                    Load More
-                  </div>
-                )}
+                <div className="flex items-center gap-2">
+                  <span>📥</span>
+                  Load More ({content.length} items loaded)
+                </div>
               </button>
             </div>
           )}
 
+          {/* Intersection observer target for infinite scroll */}
+          <div ref={observerTarget} style={{ height: "1px", margin: "20px 0" }} />
+
           {/* End of Feed */}
           {!hasMore && content.length > 0 && (
             <div className="text-center mt-12 py-8 border-t border-gray-800">
-              <div className="text-4xl mb-4">🎉</div>
-              <h3 className="text-xl font-semibold text-white mb-2">You're all caught up!</h3>
+              <div className="text-4xl mb-4">🛩️</div>
+              <h3 className="text-xl font-semibold text-white mb-2">You've reached rock bottom!</h3>
               <p className="text-gray-400">
-                You've reached the end of your personalized feed.
+                No more content. Maybe go touch grass? 🌿
+                {metrics?.stats && (
+                  <span className="block text-sm mt-2">
+                    Processed {metrics.stats.users_processed} users •
+                    Found {metrics.stats.total_items} items
+                  </span>
+                )}
               </p>
             </div>
           )}
@@ -256,25 +447,41 @@ export const PersonalizedFeed = () => {
           {/* Empty State */}
           {content.length === 0 && !loading && (
             <div className="text-center py-16 md:py-24">
-              <div className="text-gray-400 text-6xl md:text-8xl mb-6">📱</div>
+              <div className="text-gray-400 text-6xl md:text-8xl mb-6">💀</div>
               <h3 className="text-2xl md:text-3xl font-semibold text-white mb-4">
-                Your feed is empty
+                {getRoast.empty('feed')}
               </h3>
               <p className="text-gray-400 text-lg mb-8 max-w-md mx-auto">
-                This could be due to Lack of internet or You haven't following anyone or noone following you.
+                {metrics?.stats?.users_processed === 0
+                  ? "Zero friends? Wow. Maybe follow some people and pretend to be social?"
+                  : "Even your network has nothing to show. Awkward. 🫠"}
               </p>
-              <button
-                onClick={loadMore}
-                className="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
-              >
-                Refresh Feed
-              </button>
+              <div className="flex gap-4 justify-center">
+                <button
+                  onClick={refresh}
+                  disabled={loading}
+                  className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg font-medium transition-all duration-300"
+                >
+                  Try Again (we believe in you... barely)
+                </button>
+                <button
+                  onClick={() => window.location.href = '/explore'}
+                  className="px-6 py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-lg font-medium transition-all duration-300"
+                >
+                  Find Some Friends
+                </button>
+              </div>
             </div>
           )}
         </div>
 
         {/* Sync Status Indicator - Only show in development */}
-        {process.env.NODE_ENV === 'development' && <SyncStatusIndicator />}
+        {process.env.NODE_ENV === 'development' && lastKey && (
+          <div className="fixed bottom-4 right-4 bg-gray-900/80 backdrop-blur-sm text-xs text-gray-300 p-2 rounded-lg border border-gray-700">
+            <div>Last Key: {lastKey.substring(0, 20)}...</div>
+            <div>Has More: {hasMore ? 'Yes' : 'No'}</div>
+          </div>
+        )}
 
         {/* Comment Modal */}
         {commentModal && (
@@ -293,6 +500,7 @@ export const PersonalizedFeed = () => {
           />
         )}
 
+        {/* Share Modal */}
         {shareModal && (
           <ShareComponent
             isOpen={shareModal.isOpen}

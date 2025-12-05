@@ -1,12 +1,5 @@
 import { useEffect } from "react";
 
-// Extend window for AdSense
-declare global {
-  interface Window {
-    adsbygoogle: any[];
-  }
-}
-
 export default function InFeedAd2() {
   useEffect(() => {
     try {

@@ -1,17 +1,37 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useInViewport } from '../../hooks/useInViewPort';
 import ProfilePicture from '../shared/ProfilePicture';
 import EngagementButtons from './personalized/EngagementButtons';
 import "../../styles/global-feed.css";
 
+interface CrinzMessageUser {
+  profilePic?: string;
+  userName?: string;
+}
+
+interface CrinzMessageItem {
+  userId?: string;
+  user?: CrinzMessageUser;
+  timestamp: string;
+  content: string;
+  id?: string;
+  likeCount?: number;
+  commentCount?: number;
+  shareCount?: number;
+  isLiked?: boolean;
+  type?: string;
+}
+
 interface CrinzTileProps {
-  item: any;
+  item: CrinzMessageItem;
   onComment: () => void;
   onShare: () => void;
-  onLikeUpdate?: (contentId: string, newLikeCount: number, isLiked: boolean) => void; // ✅ NEW: Like callback
+  onLikeUpdate?: (contentId: string, newLikeCount: number, isLiked: boolean) => void;
 }
 
 const CrinzTile: React.FC<CrinzTileProps> = ({ item, onComment, onShare, onLikeUpdate }) => {
+  const navigate = useNavigate();
   const { ref } = useInViewport();
 
   // ✅ UPDATED: Handle like with callback
@@ -48,7 +68,16 @@ const CrinzTile: React.FC<CrinzTileProps> = ({ item, onComment, onShare, onLikeU
             />
           </div>
           <div className="user-info">
-            <span className="username">{item.user?.userName || 'Anonymous'}</span>
+            <span
+              className="username"
+              style={{ cursor: 'pointer' }}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (item.userId) navigate(`/profile/${item.userId}`);
+              }}
+            >
+              {item.user?.userName || 'Anonymous'}
+            </span>
             <span className="timestamp">
               {new Date(item.timestamp).toLocaleDateString('en-US', {
                 month: 'short',

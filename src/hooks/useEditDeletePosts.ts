@@ -1,9 +1,10 @@
 // hooks/usePostActions.ts
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useAuth } from "react-oidc-context";
+import { API_ENDPOINTS } from "../constants/apiEndpoints";
 
-const PROFILE_BATCH_API_URL = `${import.meta.env.VITE_BASE_API_URL}/handleEditDeleteUserPosts`;
-const POST_BATCH_API_URL = `${import.meta.env.VITE_BASE_API_URL}/batchProcesser`;
+const PROFILE_BATCH_API_URL = `${import.meta.env.VITE_BASE_API_URL}${API_ENDPOINTS.HANDLE_EDIT_DELETE_USER_POSTS}`;
+const POST_BATCH_API_URL = `${import.meta.env.VITE_BASE_API_URL}${API_ENDPOINTS.BATCH_PROCESSER}`;
 const STORAGE_KEY = "profile:pendingActions";
 
 interface PendingAction {
@@ -27,6 +28,14 @@ interface UsePostActionsReturn {
   pendingActionsCount: number;
   getPendingActions: () => PendingAction[];
 }
+
+// Define proper types for backend actions
+type BackendAction = Omit<PendingAction, 'data'> & {
+  data?: {
+    message?: string;
+    tags?: string[];
+  };
+};
 
 export const usePostActions = (): UsePostActionsReturn & {
   clearPendingActionFor: (match: { type: string; postId: string; commentId?: string; payload?: string }) => boolean;
@@ -148,7 +157,7 @@ export const usePostActions = (): UsePostActionsReturn & {
       }
 
       // map actions to backend payload
-      const backendActions = actionsToProcess.map(action => {
+      const backendActions: BackendAction[] = actionsToProcess.map(action => {
         const { data, ...rest } = action;
         if (action.type === "update" && data) {
           return { ...rest, data };
@@ -170,8 +179,8 @@ export const usePostActions = (): UsePostActionsReturn & {
         ["update", "delete"].includes(a.type)
       );
 
-      // helper to send actions to correct endpoint
-      const sendActions = async (url: string, actions: any[]) => {
+      // Define proper type for sendActions function
+      const sendActions = async (url: string, actions: BackendAction[]) => {
         if (actions.length === 0) return;
 
         const res = await fetch(url, {

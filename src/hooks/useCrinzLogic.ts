@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useAuth } from "react-oidc-context";
 import { useCache } from "../context/CacheContext";
 import { contentManager } from "../utils/Posts_Reels_Stats_Syncer";
+import { API_ENDPOINTS } from "../constants/apiEndpoints";
 
 export interface User {
   userName: string;
@@ -48,7 +49,7 @@ export function useCrinzLogic() {
       const userDetails = JSON.parse(localStorage.getItem("user_details") || "{}");
       const categories = userDetails?.categories || [];
 
-      const res = await fetch(`${import.meta.env.VITE_BASE_API_URL}/getCrinz`, {
+      const res = await fetch(`${import.meta.env.VITE_BASE_API_URL}${API_ENDPOINTS.GET_CRINZ}`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -188,11 +189,14 @@ export function useCrinzLogic() {
     return () => clearInterval(interval);
   }, [autoMode, auth.isAuthenticated, isFetching, getCrinzMessage]);
 
-  // Cleanup on unmount
+  // Cleanup on unmount - Fixed version
   useEffect(() => {
+    // Capture the current ref value
+    const currentFetchTimeout = fetchTimeoutRef.current;
+
     return () => {
-      if (fetchTimeoutRef.current) {
-        clearTimeout(fetchTimeoutRef.current);
+      if (currentFetchTimeout) {
+        clearTimeout(currentFetchTimeout);
       }
     };
   }, []);

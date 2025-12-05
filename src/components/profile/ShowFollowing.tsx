@@ -12,7 +12,7 @@ const ShowFollowing: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
     if (userId) {
       fetchFollowing();
     }
-  }, [userId]);
+  }, [userId, fetchFollowing]);
 
   const handleFollowToggle = async (targetUserId: string) => {
     setProcessingIds(prev => new Set(prev).add(targetUserId));

@@ -1,11 +1,31 @@
 import React, { useState, useCallback, useEffect } from "react";
 import ReactDOM from "react-dom";
 import UserAvatar from "../../utils/UserAvatar";
-import { fetchComments, type Comment } from "../../utils/commentsService";
+import { fetchComments } from "../../utils/commentsService";
+import { type Comment } from "../../utils/commentsService";
 import { batchSyncer } from "../../utils/msgsBatchSyncer";
 import { useNavigate } from "react-router-dom";
 import "../../styles/comment-modal.css";
 
+interface CommentActionPayload {
+    comment: string;
+    commentId: string;
+    contentType: 'post' | 'reel' | 'crinz_message';
+    isCrinzMessage: boolean;
+}
+
+interface DeleteActionPayload {
+    commentId: string;
+    contentType: 'post' | 'reel' | 'crinz_message';
+    isCrinzMessage: boolean;
+}
+
+interface BatchAction {
+    type: 'add_comment' | 'remove_comment';
+    crinzId: string;
+    userId: string;
+    payload: CommentActionPayload | DeleteActionPayload;
+}
 
 interface CommentModalProps {
     postId: string;
@@ -19,7 +39,6 @@ interface CommentModalProps {
     currentUserId?: string;
     accessToken?: string;
     contentType?: 'post' | 'reel' | 'crinz_message';
-    contentManager?: any;
     onNewComment: (postId: string, commentText: string) => void;
     onDeleteComment: (postId: string) => void;
 }
@@ -83,7 +102,7 @@ const CommentModal: React.FC<CommentModalProps> = ({
                     commentsCache.set(postId, comments);
                     setLocalComments(comments);
                 })
-                .catch((err) => {
+                .catch((err: Error) => {
                     setError(err.message || "Failed to fetch comments");
                     console.error("Error fetching comments:", err);
                 })
@@ -99,7 +118,7 @@ const CommentModal: React.FC<CommentModalProps> = ({
         e.preventDefault();
         if (!newComment.trim() || !currentUserId) return;
 
-        const payload: any = {
+        const payload: CommentActionPayload = {
             comment: newComment.trim(),
             commentId: `temp-${Date.now()}`,
             contentType: contentType,
@@ -118,7 +137,7 @@ const CommentModal: React.FC<CommentModalProps> = ({
             crinzId: postId,
             userId: currentUserId,
             payload: payload
-        });
+        } as BatchAction);
 
         // Optimistically add comment to UI with user data
         const newCommentObj: Comment = {
@@ -147,7 +166,7 @@ const CommentModal: React.FC<CommentModalProps> = ({
     const handleDeleteComment = (commentId: string) => {
         console.log('🗑️ CommentModal - Deleting comment:', commentId);
 
-        const payload = {
+        const payload: DeleteActionPayload = {
             commentId: commentId,
             contentType: contentType,
             isCrinzMessage: contentType === 'crinz_message'
@@ -160,7 +179,7 @@ const CommentModal: React.FC<CommentModalProps> = ({
             crinzId: postId,
             userId: currentUserId!,
             payload: payload
-        });
+        } as BatchAction);
 
         // Optimistic UI update
         setLocalComments(prev => prev.filter(c => c.commentId !== commentId));

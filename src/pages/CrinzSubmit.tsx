@@ -1,16 +1,17 @@
 import React, { useState, type FormEvent, type KeyboardEvent } from 'react';
-import { ContributeSeo } from '../components/shared/Seo';
+import { ContributeCrinzSEO } from '../components/shared/seoContent';
 import Select from "react-select";
 import { useCrinzLogic } from "../hooks/useCrinzLogic";
 import { jwtDecode } from 'jwt-decode';
 import { useNavigate } from 'react-router-dom';
 import type { CrinzMessage } from '../hooks/UserInfo';
 import "../styles/crinz-submit.css";
+import { API_ENDPOINTS } from "../constants/apiEndpoints";
 
 interface CognitoIdTokenPayload {
     sub: string;
     'cognito:username': string;
-    [key: string]: any;
+    [key: string]: string;
 }
 
 interface TagOption {
@@ -56,7 +57,7 @@ const CrinzSubmit: React.FC = () => {
     if (!auth.isAuthenticated) {
         return (
             <div className="crinz-signin-prompt">
-                <ContributeSeo />
+                <ContributeCrinzSEO />
                 <h2 className="crinz-signin-title">Please sign in to submit your roast 🔒</h2>
                 <button onClick={() => auth.signinRedirect()} className="crinz-signin-button">Sign In</button>
             </div>
@@ -99,7 +100,7 @@ const CrinzSubmit: React.FC = () => {
             const userId = decoded['cognito:username'] ?? decoded.sub;
             const tags = selectedTags.map(tag => tag.value);
 
-            const res = await fetch(`${import.meta.env.VITE_BASE_API_URL}/postCrinz`, {
+            const res = await fetch(`${import.meta.env.VITE_BASE_API_URL}${API_ENDPOINTS.POST_CRINZ}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
                 body: JSON.stringify({ userId, message, tags }) // Removed userName
@@ -124,15 +125,16 @@ const CrinzSubmit: React.FC = () => {
                 setResponse(data.error || `Error: ${res.status} ${res.statusText}`);
                 setStatus("error");
             }
-        } catch (err: any) {
-            setResponse(`❌ Network error: ${err.message}`);
+        } catch (err: unknown) {
+            const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+            setResponse(`❌ Network error: ${errorMessage}`);
             setStatus("error");
         }
     };
 
     return (
         <div className="crinz-submit-container">
-            <ContributeSeo />
+            <ContributeCrinzSEO />
             <h2 className="crinz-submit-title">🔥 Submit Your Roast</h2>
             <form onSubmit={handleSubmit} className="crinz-form">
 

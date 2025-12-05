@@ -2,15 +2,26 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { useAuth } from 'react-oidc-context';
 import { contentManager } from '../../../utils/Posts_Reels_Stats_Syncer';
 
+interface EngagementItem {
+  id?: string;  // Make id optional
+  type?: string;
+  isLikedByUser?: boolean;
+  likeCount?: number;
+  likes?: number;
+  commentCount?: number;
+  comments?: number;
+  shareCount?: number;
+  isLiked?: boolean;
+}
+
 interface EngagementButtonsProps {
-  item: any;
+  item: EngagementItem;
   onLike: () => void;
   onShare: () => void;
   onComment: () => void;
-  onLikeUpdate?: (contentId: string, newLikeCount: number, isLiked: boolean) => void; // ✅ NEW: Like callback
+  onLikeUpdate?: (contentId: string, newLikeCount: number, isLiked: boolean) => void;
   centered?: boolean;
 }
-
 const EngagementButtons: React.FC<EngagementButtonsProps> = ({
   item,
   onLike,
@@ -51,9 +62,8 @@ const EngagementButtons: React.FC<EngagementButtonsProps> = ({
     );
   }, [item.isLikedByUser, item.likeCount, item.likes, item.commentCount, item.comments]);
 
-  // ✅ UPDATED: Handle like with parent callback
   const handleLike = useCallback(() => {
-    if (!userId) return;
+    if (!userId || !item.id) return; // Add check for item.id
 
     const newLikedState = !liked;
     const newLikeCount = newLikedState ? likeCount + 1 : Math.max(0, likeCount - 1);
@@ -70,9 +80,9 @@ const EngagementButtons: React.FC<EngagementButtonsProps> = ({
       newLikeCount: newLikeCount
     });
 
-    // Use centralized content manager
-    contentManager.likeContent(item.id, item.type, userId, liked);
-
+    // Use centralized content manager with proper type casting
+    const contentType = (item.type as 'post' | 'reel' | 'crinz_message');
+    contentManager.likeContent(item.id, contentType, userId, liked);
     // ✅ NEW: Notify parent component of like update
     if (onLikeUpdate) {
       onLikeUpdate(item.id, newLikeCount, newLikedState);

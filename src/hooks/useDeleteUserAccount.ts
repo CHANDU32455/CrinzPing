@@ -1,8 +1,9 @@
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { API_ENDPOINTS } from "../constants/apiEndpoints";
 
-const DELETE_ACCOUNT_API = `${import.meta.env.VITE_BASE_API_URL}/deleteUserAccount`;
+const DELETE_ACCOUNT_API = `${import.meta.env.VITE_BASE_API_URL}${API_ENDPOINTS.DELETE_USER_ACCOUNT}`;
 
 function clearAllCookies() {
   document.cookie.split(";").forEach((c) => {
@@ -57,12 +58,25 @@ export function useDeleteUserAccount() {
         }
 
         return { success: false, data: response.data };
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("❌ account deletion failed:", error);
-        const message =
-          error.response?.data?.message ||
-          error.message ||
-          "Failed to delete account";
+
+        let message = "Failed to delete account";
+
+        if (error && typeof error === 'object') {
+          // Check for axios-style error with response.data
+          if ('response' in error && error.response && typeof error.response === 'object') {
+            const response = error.response as { data?: { message?: string } };
+            if (response.data?.message) {
+              message = response.data.message;
+            }
+          }
+          // Check for standard Error object
+          else if ('message' in error && typeof error.message === 'string') {
+            message = error.message;
+          }
+        }
+
         setDeleteError(message);
         return { success: false, error: message };
       } finally {

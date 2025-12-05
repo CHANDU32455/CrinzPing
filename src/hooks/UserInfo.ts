@@ -1,11 +1,12 @@
 import axios from "axios";
 import { useState, useEffect, useCallback } from "react";
+import { API_ENDPOINTS } from "../constants/apiEndpoints";
 
 const BASE_API_URL = import.meta.env.VITE_BASE_API_URL;
 
 // construct specific endpoints
-const USER_API_URL = `${BASE_API_URL}/getUserDetails`;
-const CRINZ_API_URL = `${BASE_API_URL}/fetchUserPosts`;
+const USER_API_URL = `${BASE_API_URL}${API_ENDPOINTS.GET_USER_DETAILS}`;
+const CRINZ_API_URL = `${BASE_API_URL}${API_ENDPOINTS.FETCH_USER_POSTS}`;
 
 export interface CrinzMessage {
   crinzId: string;
@@ -26,7 +27,7 @@ export interface UserDetails {
   profilePic?: string; // base64 or URL
   profilePicPath?: string; // S3 path for future reference
   categories?: string[];
-  [key: string]: any;
+  [key: string]: unknown; // Changed from any to unknown for better type safety
 }
 
 export interface CrinzResponse {
@@ -42,8 +43,8 @@ const crinzCache: Record<string, CrinzMessage[]> = {};
 const lastKeyCache: Record<string, string | undefined> = {};
 
 // ---------- Request deduplication ----------
-let activeUserFetches: Map<string, Promise<UserDetails | void>> = new Map();
-let activeCrinzFetches: Map<string, Promise<CrinzResponse | void>> = new Map();
+const activeUserFetches: Map<string, Promise<UserDetails | void>> = new Map();
+const activeCrinzFetches: Map<string, Promise<CrinzResponse | void>> = new Map();
 
 // Helper function with timeout
 const withTimeout = <T>(promise: Promise<T>, timeoutMs: number = 10000): Promise<T> => {
@@ -88,14 +89,24 @@ const fetchImageAsBase64 = async (url: string): Promise<string> => {
   });
 };
 
+// Define proper error types
+interface ApiError extends Error {
+  response?: {
+    status: number;
+    data?: {
+      message?: string;
+    };
+  };
+}
+
 export const useUserDetails = (userSub?: string) => {
   const [userDetails, setUserDetails] = useState<UserDetails>();
   const [crinzMessages, setCrinzMessages] = useState<CrinzMessage[]>([]);
   const [loadingUser, setLoadingUser] = useState(false);
   const [loadingCrinz, setLoadingCrinz] = useState(false);
   const [lastKey, setLastKey] = useState<string | undefined>();
-  const [userError, setUserError] = useState<any>(null);
-  const [crinzError, setCrinzError] = useState<any>(null);
+  const [userError, setUserError] = useState<ApiError | null>(null);
+  const [crinzError, setCrinzError] = useState<Error | null>(null);
 
   // -------- Fetch user details with deduplication --------
   const fetchUserDetails = useCallback(
@@ -199,8 +210,9 @@ export const useUserDetails = (userSub?: string) => {
             return merged;
 
           } catch (err) {
-            setUserError(err);
-            throw err;
+            const apiError = err as ApiError;
+            setUserError(apiError);
+            throw apiError;
           } finally {
             setLoadingUser(false);
           }
@@ -285,10 +297,11 @@ export const useUserDetails = (userSub?: string) => {
             return data;
 
           } catch (err) {
-            setCrinzError(err);
+            const errorObj = err as Error;
+            setCrinzError(errorObj);
             if (!startKey) setCrinzMessages([]);
             setLastKey(undefined);
-            throw err;
+            throw errorObj;
           } finally {
             setLoadingCrinz(false);
           }

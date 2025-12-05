@@ -1,18 +1,11 @@
-import { createContext, useContext, useState } from "react";
+import { createContext } from "react";
 
-const AdsContext = createContext({
+export interface AdsContextType {
+  adsEnabled: boolean;
+  setAdsEnabled: (value: boolean) => void;
+}
+
+export const AdsContext = createContext<AdsContextType>({
   adsEnabled: false,
-  setAdsEnabled: (_v: boolean) => {},
+  setAdsEnabled: () => { },
 });
-
-export const AdsProvider = ({ children }: { children: React.ReactNode }) => {
-  const [adsEnabled, setAdsEnabled] = useState(true); // default true
-
-  return (
-    <AdsContext.Provider value={{ adsEnabled, setAdsEnabled }}>
-      {children}
-    </AdsContext.Provider>
-  );
-};
-
-export const useAds = () => useContext(AdsContext);

@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "react-oidc-context";
-import { indexedDBCache } from "../utils/indexedDBCache";
+import { API_ENDPOINTS } from "../constants/apiEndpoints";
 
 type FileItem = {
   s3Key: string;
@@ -34,11 +34,11 @@ type ApiResponse = {
   lastKey?: string;
 };
 
-type CachedData = {
-  posts: Post[];
-  userDetails: UserDetails;
-  hasMore: boolean;
-  lastKey: string | null;
+type FetchPayload = {
+  type: "crinzpostsmeme" | "crinzpostsreels";
+  limit: number;
+  lastKey?: string;
+  userId?: string;
 };
 
 export const useUserPosts = (type: "crinzpostsmeme" | "crinzpostsreels", userId?: string) => {
@@ -49,36 +49,10 @@ export const useUserPosts = (type: "crinzpostsmeme" | "crinzpostsreels", userId?
   const [hasMore, setHasMore] = useState(true);
   const [lastKey, setLastKey] = useState<string | null>(null);
 
-  // Generate unique cache key based on type and userId
-  const getCacheKey = () => {
-    const typeKey = type === "crinzpostsmeme" ? "memes" : "reels";
-    return `user_posts_${userId || user?.profile?.sub}_${typeKey}`;
-  };
-
-  const fetchData = async (isLoadMore = false, isRefresh = false) => {
+  const fetchData = useCallback(async (isLoadMore = false) => {
     if (!user?.access_token) return;
 
-    // Cache First Strategy: Only fetch if no cache exists OR explicit refresh OR pagination
-    if (!isLoadMore && !isRefresh) {
-      try {
-        const cacheKey = getCacheKey();
-        const cachedData = await indexedDBCache.getItem<CachedData>(cacheKey);
-        if (cachedData) {
-          console.log(`[Posts Cache HIT] Using cached data for ${type}`);
-          setPosts(cachedData.posts);
-          setUserDetails(cachedData.userDetails);
-          setLastKey(cachedData.lastKey);
-          setHasMore(cachedData.hasMore);
-          setLoading(false);
-          return; // Skip API call
-        }
-      } catch (error) {
-        console.error('[IndexedDB] Cache read failed, continuing with fetch:', error);
-        // Continue to fetch if cache fails
-      }
-    }
-
-    const payload: any = {
+    const payload: FetchPayload = {
       type,
       limit: 20
     };
@@ -92,7 +66,7 @@ export const useUserPosts = (type: "crinzpostsmeme" | "crinzpostsreels", userId?
     }
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_BASE_API_URL}/fetchUserPostsAndReels`, {
+      const res = await fetch(`${import.meta.env.VITE_BASE_API_URL}${API_ENDPOINTS.FETCH_USER_POSTS_AND_REELS}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -110,20 +84,6 @@ export const useUserPosts = (type: "crinzpostsmeme" | "crinzpostsreels", userId?
           setPosts(prev => [...prev, ...data.posts]);
         } else {
           setPosts(data.posts);
-          // Update IndexedDB cache (only for first page)
-          try {
-            const cacheKey = getCacheKey();
-            const cacheData: CachedData = {
-              posts: data.posts,
-              userDetails: data.userDetails || { userName: "", userProfilePic: "", userTagline: "" },
-              hasMore: data.hasMore === true,
-              lastKey: data.lastKey || null
-            };
-            await indexedDBCache.setItem(cacheKey, cacheData, 3600000); // 1 hour TTL
-          } catch (cacheError) {
-            console.error('[IndexedDB] Cache write failed (continuing):', cacheError);
-            // Continue without caching - app still works
-          }
         }
         setUserDetails(data.userDetails || null);
         setLastKey(data.lastKey || null);
@@ -133,27 +93,30 @@ export const useUserPosts = (type: "crinzpostsmeme" | "crinzpostsreels", userId?
       }
     } catch (error) {
       console.error(`Error fetching ${type}:`, error);
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [type, user?.access_token, userId, lastKey]);
 
-  const loadMore = () => {
+  const loadMore = useCallback(() => {
     if (hasMore && !loading) {
-      fetchData(true, false);
+      fetchData(true);
     }
-  };
+  }, [hasMore, loading, fetchData]);
 
-  const refreshPosts = () => {
+  const refreshPosts = useCallback(() => {
     setPosts([]);
     setUserDetails(null);
     setLastKey(null);
     setHasMore(true);
-    fetchData(false, true); // Explicit refresh
-  };
+    setLoading(true);
+    fetchData(false);
+  }, [fetchData]);
 
   useEffect(() => {
     setLoading(true);
-    fetchData(false, false).finally(() => setLoading(false));
-  }, [type, user?.access_token, userId]);
+    fetchData(false);
+  }, [fetchData]);
 
   return {
     posts,

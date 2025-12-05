@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from 'react-oidc-context';
+import { API_ENDPOINTS } from "../constants/apiEndpoints";
 
 interface FollowStats {
   followersCount: number;
@@ -17,6 +18,11 @@ interface User {
   postCount: number;
 }
 
+// Define proper types for pagination keys
+interface PaginationKey {
+  [key: string]: unknown;
+}
+
 // Simple global cache - add this at the top
 const cache = {
   stats: new Map<string, FollowStats>(),
@@ -27,6 +33,7 @@ const cache = {
 const useFollow = (userId?: string) => {
   const auth = useAuth();
   const accessToken = auth.user?.access_token;
+  const currentUserId = auth.user?.profile.sub || localStorage.getItem("sub");
   const [stats, setStats] = useState<FollowStats>({
     followersCount: 0,
     followingCount: 0,
@@ -34,31 +41,20 @@ const useFollow = (userId?: string) => {
   });
   const [followersList, setFollowersList] = useState<User[]>([]);
   const [followingList, setFollowingList] = useState<User[]>([]);
-  const [followersLastKey, setFollowersLastKey] = useState<any>(null);
-  const [followingLastKey, setFollowingLastKey] = useState<any>(null);
+  const [followersLastKey, setFollowersLastKey] = useState<PaginationKey | null>(null);
+  const [followingLastKey, setFollowingLastKey] = useState<PaginationKey | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const QUERY_HANDLER = `${import.meta.env.VITE_BASE_API_URL}/follow_query_handler`;
-  const FOLLOW_UNFOLLOW_POINT = `${import.meta.env.VITE_BASE_API_URL}/follow_handler`;
+  const QUERY_HANDLER = `${import.meta.env.VITE_BASE_API_URL}${API_ENDPOINTS.FOLLOW_QUERY_HANDLER}`;
+  const FOLLOW_UNFOLLOW_POINT = `${import.meta.env.VITE_BASE_API_URL}${API_ENDPOINTS.FOLLOW_HANDLER}`;
 
   // cache refs
   const statsFetched = useRef(false);
   const followersFetched = useRef(false);
   const followingFetched = useRef(false);
 
-  // Add refreshStats function - useCallback to prevent unnecessary re-renders
-  const refreshStats = useCallback(async () => {
-    if (!userId) return;
-
-    console.log("[useFollow] Force refreshing stats...");
-    // Clear cache for this user to force fresh fetch
-    cache.stats.delete(userId);
-    statsFetched.current = false;
-    await fetchFollowStats(true);
-  }, [userId]);
-
-  const fetchFollowStats = async (force = false) => {
+  const fetchFollowStats = useCallback(async (force = false) => {
     if (!userId) return;
 
     // Check cache first - ADDED CACHE LOGIC
@@ -77,7 +73,7 @@ const useFollow = (userId?: string) => {
     setLoading(true);
     setError(null);
     try {
-      const url = `${QUERY_HANDLER}?type=stats&userId=${userId}&currentUserId=${auth.user?.profile.sub}`;
+      const url = `${QUERY_HANDLER}?type=stats&userId=${userId}&currentUserId=${currentUserId}`;
       console.log(`[useFollow] GET request for stats`);
 
       const response = await fetch(url, {
@@ -101,9 +97,20 @@ const useFollow = (userId?: string) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId, currentUserId, accessToken, QUERY_HANDLER]);
 
-  const fetchFollowers = async (append = false, force = false) => {
+  // Add refreshStats function - useCallback to prevent unnecessary re-renders
+  const refreshStats = useCallback(async () => {
+    if (!userId) return;
+
+    console.log("[useFollow] Force refreshing stats...");
+    // Clear cache for this user to force fresh fetch
+    cache.stats.delete(userId);
+    statsFetched.current = false;
+    await fetchFollowStats(true);
+  }, [userId, fetchFollowStats]);
+
+  const fetchFollowers = useCallback(async (append = false, force = false) => {
     if (!userId) return;
 
     // cache check (only if not paginating and not force reloading)
@@ -123,7 +130,6 @@ const useFollow = (userId?: string) => {
     setError(null);
 
     try {
-      const currentUserId = localStorage.getItem("sub");
       let url = `${QUERY_HANDLER}?type=followers&userId=${userId}&currentUserId=${currentUserId}&limit=10`;
 
       // add pagination key if present
@@ -160,10 +166,9 @@ const useFollow = (userId?: string) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId, currentUserId, accessToken, followersLastKey, followersList, QUERY_HANDLER]);
 
-
-  const fetchFollowing = async (append = false, force = false) => {
+  const fetchFollowing = useCallback(async (append = false, force = false) => {
     if (!userId) return;
 
     // cache check (only if not paginating and not force reloading)
@@ -183,7 +188,6 @@ const useFollow = (userId?: string) => {
     setError(null);
 
     try {
-      const currentUserId = localStorage.getItem("sub");
       let url = `${QUERY_HANDLER}?type=following&userId=${userId}&currentUserId=${currentUserId}&limit=10`;
 
       // add pagination key if present
@@ -222,13 +226,11 @@ const useFollow = (userId?: string) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId, currentUserId, accessToken, followingLastKey, followingList, QUERY_HANDLER]);
 
-  const doToggle = async (targetUserId: string, action: "follow" | "unfollow") => {
+  const doToggle = useCallback(async (targetUserId: string, action: "follow" | "unfollow") => {
     setError(null);
     try {
-      const currentUserId = localStorage.getItem("sub");
-
       console.log("[useFollow] Toggle follow request:", {
         followerId: currentUserId,
         targetId: targetUserId,
@@ -256,7 +258,7 @@ const useFollow = (userId?: string) => {
         try {
           const errorData = JSON.parse(responseText);
           errorMessage = errorData.error || errorMessage;
-        } catch (e) {
+        } catch {
           if (responseText) errorMessage += `: ${responseText}`;
         }
         throw new Error(errorMessage);
@@ -292,37 +294,35 @@ const useFollow = (userId?: string) => {
 
         return true;
       }
+      return false;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "An error occurred";
       setError(errorMessage);
       console.error("Error toggling follow:", err);
       return false;
     }
-  };
+  }, [currentUserId, accessToken, userId, stats, FOLLOW_UNFOLLOW_POINT]);
 
   // profile usage (depends on stats.isFollowing)
-  const toggleFollow = async (targetUserId: string) => {
+  const toggleFollow = useCallback(async (targetUserId: string) => {
     const action = stats.isFollowing ? "unfollow" : "follow";
     return doToggle(targetUserId, action);
-  };
+  }, [stats.isFollowing, doToggle]);
 
   // list usage (explicit flag)
-  const toggleFollowDirect = async (targetUserId: string, isCurrentlyFollowing: boolean) => {
+  const toggleFollowDirect = useCallback(async (targetUserId: string, isCurrentlyFollowing: boolean) => {
     const action = isCurrentlyFollowing ? "unfollow" : "follow";
     return doToggle(targetUserId, action);
-  };
+  }, [doToggle]);
 
   useEffect(() => {
-    const currentUserId =
-      auth.user?.profile.sub || localStorage.getItem("sub");
-
     if (!userId || !currentUserId) {
       console.log("[useFollow] Waiting for auth to load...");
       return;
     }
 
     fetchFollowStats(false); // ✅ Load from cache if available
-  }, [userId]);
+  }, [userId, currentUserId, fetchFollowStats]);
 
   return {
     stats,
